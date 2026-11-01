@@ -1,0 +1,112 @@
+﻿package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/joho/godotenv"
+
+	"srp-biess/internal/application"
+	"srp-biess/internal/domain"
+	"srp-biess/internal/infrastructure/cache"
+	"srp-biess/internal/infrastructure/database"
+	interfacesHTTP "srp-biess/internal/interfaces/http"
+	"srp-biess/internal/interfaces/http/handlers"
+)
+
+func main() {
+	// 1. Cargar Variables de Entorno
+	if err := godotenv.Load(); err != nil {
+		log.Println("[INFO] Archivo .env no encontrado, usando variables de entorno del sistema")
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	log.Println("========================================================")
+	log.Println("  SRP-BIESS: Backend API (Go 1.22+ & Fiber v2)")
+	log.Println("  Arquitectura Limpia & Inyección Manual de Dependencias")
+	log.Println("========================================================")
+
+	// 2. Infraestructura: Conexiones a PostgreSQL y Redis
+	pool, err := database.NewPostgresPool(ctx)
+	if err != nil {
+		log.Printf("[ALERTA] Error al iniciar pool de base de datos: %v", err)
+	} else {
+		defer pool.Close()
+	}
+
+	rdb := cache.NewRedisClient(ctx)
+	defer rdb.Close()
+
+	// 3. Servicios de Aplicación (Inyección Manual - ADR-003)
+	// (Por ahora postulanteRepo es nil hasta el Ticket SRP-004 de persistencia)
+	// Estrategia de validación de identidad (Patrón Strategy - ADR-013)
+	cedulaStrategy := domain.NewCedulaEcuatorianaStrategy()
+	authService := application.NewAuthService(nil, cedulaStrategy)
+
+	// 4. Handlers HTTP
+	healthHandler := handlers.NewHealthHandler()
+	authHandler := handlers.NewAuthHandler(authService)
+
+	// 5. Instanciar Servidor Fiber con Middlewares Globales
+	app := fiber.New(fiber.Config{
+		AppName:      "SRP-BIESS API v1.0",
+		ServerHeader: "Fiber",
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	})
+
+	app.Use(recover.New())
+	app.Use(logger.New(logger.Config{
+		Format:     "[${time}] ${status} - ${latency} | ${method} ${path}\n",
+		TimeFormat: "15:04:05",
+		TimeZone:   "America/Guayaquil",
+	}))
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
+	}))
+
+	// 6. Configurar Rutas
+	interfacesHTTP.SetupRoutes(app, interfacesHTTP.RouterConfig{
+		HealthHandler: healthHandler,
+		AuthHandler:   authHandler,
+	})
+
+	// 7. Arrancar Servidor con Graceful Shutdown
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	addr := fmt.Sprintf(":%s", port)
+
+	serverShutdown := make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		log.Println("[INFO] Señal de apagado recibida. Cerrando servidor Fiber...")
+		if err := app.ShutdownWithTimeout(5 * time.Second); err != nil {
+			log.Printf("[ERROR] Error durante shutdown: %v", err)
+		}
+		close(serverShutdown)
+	}()
+
+	log.Printf("[INFO] Servidor escuchando en http://localhost%s\n", addr)
+	if err := app.Listen(addr); err != nil {
+		log.Printf("[INFO] Servidor detenido: %v\n", err)
+	}
+
+	<-serverShutdown
+	log.Println("[INFO] Apagado limpio completado. Hasta pronto.")
+}

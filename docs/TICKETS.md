@@ -148,9 +148,9 @@
 * **Rama:** `feature/mocks-payments-invoicing`
 * **Descripción:** Diseñar puertos desacoplados `IdentityProvider` y `EmploymentHistoryProvider` con implementaciones Mock deterministas para la demostración académica (ADR-010).
 * **Criterios de Aceptación:**
-  - [ ] Simulación de validación dactilar y fecha de expedición con respuestas exitosas y de fallo.
-  - [ ] Validación de condición de Afiliado, Jubilado o Empleador según la cédula ingresada.
-  - [ ] Rechazo automático con mensaje reglamentario si no cumple la calidad solicitada.
+  - [x] Simulación de validación dactilar y fecha de expedición con respuestas exitosas y de fallo.
+  - [x] Validación de condición de Afiliado, Jubilado o Empleador según la cédula ingresada.
+  - [x] Rechazo automático con mensaje reglamentario si no cumple la calidad solicitada.
 
 ---
 
