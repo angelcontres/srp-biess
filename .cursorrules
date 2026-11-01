@@ -1,0 +1,9 @@
+# Cursor Rules for SRP-BIESS Project
+# Always adhere to the following guidelines:
+
+- Read AGENTS.md for full architectural context.
+- Backend: Go Fiber v2 with strict Clean Architecture (ADR-003).
+- Prohibition: internal/domain must NEVER import database/sql, pgx, fiber, or infrastructure.
+- Frontend: React + Vite + Tailwind CSS.
+- Quality Check: Ensure code builds with `go build ./cmd/api` or `npm test`.
+- Token Efficiency: Output diffs and concise explanations. Do not generate conversational boilerplate.

@@ -1,13 +1,23 @@
 {
-  "name": "examen",
+  "name": "srp-biess",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Sistema de Registro y Postulacion al Directorio del BIESS",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev:backend": "go run ./cmd/api",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "go build ./cmd/api",
+    "build:frontend": "npm --prefix frontend run build",
+    "test:backend": "go test -v ./...",
+    "verify": "cmd /c verify.bat"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+  "keywords": [
+    "biess",
+    "go",
+    "fiber",
+    "react",
+    "vite",
+    "tailwind"
+  ],
+  "author": "Equipo SRP-BIESS",
+  "license": "ISC"
 }
