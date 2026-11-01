@@ -11,7 +11,7 @@ import (
 // Permite trazabilidad centralizada compatible con Datadog, ELK y CloudWatch.
 func NewStructuredLogger() fiber.Handler {
 	return logger.New(logger.Config{
-		Format:     `{"time":"${time}","request_id":"${locals:requestid}","status":${status},"latency":"${latency}","method":"${method}","path":"${path}","ip":"${ip}","bytes_sent":${bytesSent},"error":"${error}"}` + "\n",
+		Format:     `{"time":"${time}","trace_id":"${locals:requestid}","status":${status},"latency":"${latency}","method":"${method}","path":"${path}","ip":"${ip}","bytes_sent":${bytesSent},"error":"${error}"}` + "\n",
 		TimeFormat: time.RFC3339,
 		TimeZone:   "America/Guayaquil",
 	})
