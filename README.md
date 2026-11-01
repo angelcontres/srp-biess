@@ -7,6 +7,7 @@ Plataforma web transaccional desacoplada para el **Concurso Público de Méritos
 | **Asignatura** | Frameworks de Programación Web |
 | **Evaluación** | Examen Práctico del Primer Parcial (40 Puntos) |
 | **Integrantes del Equipo** | • Paulo Rafael Orrala Arriaga<br>• Carlos Fernando Patiño Garcia<br>• Jose Daniel Gonzalez Cochea<br>• Angel Alejandro Villon Panimboza |
+| **Repositorio GitHub** | [https://github.com/angelcontres/srp-biess](https://github.com/angelcontres/srp-biess) |
 
 ---
 

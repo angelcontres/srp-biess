@@ -47,7 +47,7 @@ Todo cambio posterior a la versión 1.0 debe:
 | Examen Práctico del Primer Parcial | `Examen Práctico del Primer Parcial.md` | Rúbrica y alcance técnico de la entrega. |
 | SRS | `Docs/SRS/` | Este documento. |
 | SDD | `Docs/SDD/` | Diseño derivado de este SRS. |
-| Repositorio de código | `[URL]` | Implementación y pruebas. |
+| Repositorio de código | [github.com/angelcontres/srp-biess](https://github.com/angelcontres/srp-biess) | Implementación y pruebas. |
 
 ---
 

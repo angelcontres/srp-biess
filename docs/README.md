@@ -9,7 +9,7 @@
 | **Versión documental** | 1.1 |
 | **Fecha** | 31/10/2026 |
 | **Estado** | Versión ampliada y verificada |
-| **Repositorio** | `[URL del repositorio Git]` |
+| **Repositorio** | [github.com/angelcontres/srp-biess](https://github.com/angelcontres/srp-biess) |
 | **Equipo** | Paulo Rafael Orrala Arriaga, Carlos Fernando Patiño Garcia, Jose Daniel Gonzalez Cochea, Angel Alejandro Villon Panimboza |
 
 > **Propósito.** Reunir, en documentos Markdown separados y trazables, el **SRS** (requisitos) y el **SDD** (diseño) del módulo inicial del concurso público de méritos y oposición para la designación de los Miembros Principales y Alternos del Directorio del BIESS, en representación de los Afiliados, Jubilados y Empleadores.

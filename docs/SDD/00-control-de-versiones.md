@@ -44,7 +44,7 @@
 | SRS | `Docs/SRS/` | Requisitos que este diseño satisface. |
 | Requerimiento Funcional v1.4 | `requerimiento.pdf` | Fuente institucional. |
 | Examen Práctico | `Examen Práctico del Primer Parcial.md` | Rúbrica. |
-| Repositorio | `[URL]` | Código y pruebas. |
+| Repositorio | [github.com/angelcontres/srp-biess](https://github.com/angelcontres/srp-biess) | Código y pruebas. |
 | DDL | `16-anexos.md` | Script de referencia. |
 
 ---
