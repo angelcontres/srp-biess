@@ -65,10 +65,10 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	})
 
-	app.Use(middleware.NewRequestID())
-	app.Use(middleware.NewCORS())
-	app.Use(middleware.NewStructuredLogger())
 	app.Use(middleware.NewRecover())
+	app.Use(middleware.NewRequestID())
+	app.Use(middleware.NewStructuredLogger())
+	app.Use(middleware.NewCORS())
 
 	// 6. Configurar Rutas
 	interfacesHTTP.SetupRoutes(app, interfacesHTTP.RouterConfig{
