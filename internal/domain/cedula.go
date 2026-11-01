@@ -53,3 +53,74 @@ func ValidarCedulaEcuador(cedula string) bool {
 
 	return digitoVerificadorEsperado == digitoVerificadorReal
 }
+
+// ---------------------------------------------------------------------
+// Patrón Strategy: Abstracción de Validadores de Identidad (ADR-013)
+// ---------------------------------------------------------------------
+
+// DocumentValidationStrategy define el contrato abstracto del Patrón Strategy.
+// Permite intercambiar algoritmos de validación (Cédula, RUC, Pasaporte) sin modificar el cliente.
+type DocumentValidationStrategy interface {
+	Validate(document string) (bool, error)
+	Tipo() string
+}
+
+// CedulaEcuatorianaStrategy implementa la estrategia de validación de cédulas (Módulo 10).
+type CedulaEcuatorianaStrategy struct{}
+
+func NewCedulaEcuatorianaStrategy() *CedulaEcuatorianaStrategy {
+	return &CedulaEcuatorianaStrategy{}
+}
+
+func (s *CedulaEcuatorianaStrategy) Tipo() string {
+	return "CEDULA_ECUADOR"
+}
+
+func (s *CedulaEcuatorianaStrategy) Validate(document string) (bool, error) {
+	if !ValidarCedulaEcuador(document) {
+		return false, ErrInvalidCedula
+	}
+	return true, nil
+}
+
+// RucEcuatorianoStrategy implementa la estrategia para RUC de personas naturales (13 dígitos).
+type RucEcuatorianoStrategy struct{}
+
+func NewRucEcuatorianoStrategy() *RucEcuatorianoStrategy {
+	return &RucEcuatorianoStrategy{}
+}
+
+func (s *RucEcuatorianoStrategy) Tipo() string {
+	return "RUC_ECUADOR"
+}
+
+func (s *RucEcuatorianoStrategy) Validate(document string) (bool, error) {
+	if len(document) != 13 {
+		return false, ErrInvalidCedula
+	}
+	if document[10:] != "001" {
+		return false, ErrInvalidCedula
+	}
+	if !ValidarCedulaEcuador(document[:10]) {
+		return false, ErrInvalidCedula
+	}
+	return true, nil
+}
+
+// PasaporteStrategy implementa la validación de formato alfanumérico para pasaportes extranjeros.
+type PasaporteStrategy struct{}
+
+func NewPasaporteStrategy() *PasaporteStrategy {
+	return &PasaporteStrategy{}
+}
+
+func (s *PasaporteStrategy) Tipo() string {
+	return "PASAPORTE"
+}
+
+func (s *PasaporteStrategy) Validate(document string) (bool, error) {
+	if len(document) < 6 || len(document) > 20 {
+		return false, ErrInvalidCedula
+	}
+	return true, nil
+}

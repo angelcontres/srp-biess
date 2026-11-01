@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"srp-biess/internal/application"
+	"srp-biess/internal/domain"
 	"srp-biess/internal/infrastructure/cache"
 	"srp-biess/internal/infrastructure/database"
 	interfacesHTTP "srp-biess/internal/interfaces/http"
@@ -49,7 +50,9 @@ func main() {
 
 	// 3. Servicios de Aplicación (Inyección Manual - ADR-003)
 	// (Por ahora postulanteRepo es nil hasta el Ticket SRP-004 de persistencia)
-	authService := application.NewAuthService(nil)
+	// Estrategia de validación de identidad (Patrón Strategy - ADR-013)
+	cedulaStrategy := domain.NewCedulaEcuatorianaStrategy()
+	authService := application.NewAuthService(nil, cedulaStrategy)
 
 	// 4. Handlers HTTP
 	healthHandler := handlers.NewHealthHandler()
