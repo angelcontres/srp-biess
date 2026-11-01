@@ -1,0 +1,48 @@
+# =====================================================================
+# SRP-BIESS · Git Ignore Configuration
+# =====================================================================
+
+# Variables de entorno y secretos locales
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Almacenamiento local de archivos y uploads
+uploads/
+*.pdf.tmp
+*.tmp
+
+# Dependencias y artefactos de Node.js / Frontend
+node_modules/
+dist/
+build/
+.npm/
+*.tsbuildinfo
+
+# Artefactos y binarios de Go
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+cover.out
+
+# Logs y bases de datos locales
+*.log
+logs/
+.postgres/
+
+# IDEs y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
