@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -10,9 +10,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
 
 	"srp-biess/internal/application"
@@ -21,6 +18,7 @@ import (
 	"srp-biess/internal/infrastructure/database"
 	interfacesHTTP "srp-biess/internal/interfaces/http"
 	"srp-biess/internal/interfaces/http/handlers"
+	"srp-biess/internal/interfaces/http/middleware"
 )
 
 func main() {
@@ -58,7 +56,7 @@ func main() {
 	healthHandler := handlers.NewHealthHandler()
 	authHandler := handlers.NewAuthHandler(authService)
 
-	// 5. Instanciar Servidor Fiber con Middlewares Globales
+	// 5. Instanciar Servidor Fiber con Middlewares Globales (SRP-001)
 	app := fiber.New(fiber.Config{
 		AppName:      "SRP-BIESS API v1.0",
 		ServerHeader: "Fiber",
@@ -67,17 +65,10 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	})
 
-	app.Use(recover.New())
-	app.Use(logger.New(logger.Config{
-		Format:     "[${time}] ${status} - ${latency} | ${method} ${path}\n",
-		TimeFormat: "15:04:05",
-		TimeZone:   "America/Guayaquil",
-	}))
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
-	}))
+	app.Use(middleware.NewRequestID())
+	app.Use(middleware.NewCORS())
+	app.Use(middleware.NewStructuredLogger())
+	app.Use(middleware.NewRecover())
 
 	// 6. Configurar Rutas
 	interfacesHTTP.SetupRoutes(app, interfacesHTTP.RouterConfig{

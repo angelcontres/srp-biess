@@ -36,9 +36,9 @@
   * `internal/infrastructure/` (Implementaciones de repositorios y adaptadores)
   * `internal/interfaces/http/` (Handlers, DTOs y Router)
 * **Criterios de Aceptación:**
-  - [ ] El proyecto compila con `go build ./cmd/api`.
-  - [ ] Ningún paquete de dominio importa dependencias de infraestructura o base de datos.
-  - [ ] Middleware global de recover, logger estructurado JSON y CORS configurados.
+  - [x] El proyecto compila con `go build ./cmd/api`.
+  - [x] Ningún paquete de dominio importa dependencias de infraestructura o base de datos.
+  - [x] Middleware global de recover, logger estructurado JSON y CORS configurados.
 
 ---
 
