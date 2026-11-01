@@ -68,7 +68,7 @@ Una vez iniciado Docker Compose:
 ## 4. Base de Datos y Datos Semilla (DDL)
 
 El script SQL completo con DDL normalizado, restricciones de integridad, transacciones y datos semilla (división política del Ecuador, cargos, preguntas de inhabilidad) se encuentra en:
-* [`db/init.sql`](file:///C:/Users/OMEN/Documents/Examen/db/init.sql)
+* [`db/init.sql`](./db/init.sql)
 
 Se monta automáticamente en `/docker-entrypoint-initdb.d/01-init.sql`, ejecutándose en el primer arranque del contenedor.
 
@@ -82,7 +82,7 @@ psql -h localhost -p 5432 -U srp_user -d srp_biess
 ## 5. Variables de Entorno
 
 El archivo modelo con todos los parámetros documentados es:
-* [`.env.example`](file:///C:/Users/OMEN/Documents/Examen/.env.example)
+* [`.env.example`](./.env.example)
 
 Los scripts `start.bat` y `start.sh` crean automáticamente el archivo `.env` local a partir de este modelo si no existe.
 
@@ -90,10 +90,10 @@ Los scripts `start.bat` y `start.sh` crean automáticamente el archivo `.env` lo
 
 ## 6. Estructura de Documentación del Proyecto
 
-Toda la documentación técnica exigida por estándares de ingeniería de software se encuentra organizada en el directorio `Docs/`:
+Toda la documentación técnica exigida por estándares de ingeniería de software se encuentra organizada en el directorio `docs/`:
 
-* **[Docs/README.md](file:///C:/Users/OMEN/Documents/Examen/Docs/README.md):** Índice general y visión global de la entrega.
-* **[Docs/PLANNING.md](file:///C:/Users/OMEN/Documents/Examen/Docs/PLANNING.md):** Plan de proyecto, WBS, Matriz RACI para 3 integrantes y Guion cronometrado para la sustentación oral de 10 minutos.
-* **[Docs/TICKETS.md](file:///C:/Users/OMEN/Documents/Examen/Docs/TICKETS.md):** Catálogo de 16 tickets de implementación organizados por épicas y asignados por integrante.
-* **[Docs/SRS/](file:///C:/Users/OMEN/Documents/Examen/Docs/SRS/):** Especificación de Requisitos de Software (ISO/IEC/IEEE 29148:2018).
-* **[Docs/SDD/](file:///C:/Users/OMEN/Documents/Examen/Docs/SDD/):** Diseño de Software (IEEE 1016-2009) con arquitectura en capas, inyección de dependencias y ADRs (incluyendo validación Módulo 10 y pagos/facturación con Mocks implementables).
+* **[docs/README.md](./docs/README.md):** Índice general y visión global de la entrega.
+* **[docs/PLANNING.md](./docs/PLANNING.md):** Plan de proyecto, WBS, Matriz RACI para 4 integrantes y Guion cronometrado para la sustentación oral de 10 minutos.
+* **[docs/TICKETS.md](./docs/TICKETS.md):** Catálogo de 16 tickets de implementación organizados por épicas y asignados por integrante.
+* **[docs/SRS/](./docs/SRS/README.md):** Especificación de Requisitos de Software (ISO/IEC/IEEE 29148:2018).
+* **[docs/SDD/](./docs/SDD/README.md):** Diseño de Software (IEEE 1016-2009) con arquitectura en capas, inyección de dependencias y ADRs (incluyendo validación Módulo 10 y pagos/facturación con Mocks implementables).
