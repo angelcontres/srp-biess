@@ -18,3 +18,6 @@ type SessionStore interface {
 	GetRefreshToken(ctx context.Context, token string) (string, error)
 	DeleteRefreshToken(ctx context.Context, token string) error
 }
+
+// ErrIdentityMismatch es el rechazo genérico de validación de identidad: no revela qué dato falló (RN-08).
+var ErrIdentityMismatch = errors.New("no fue posible validar su identidad con los datos ingresados")

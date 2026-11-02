@@ -11,18 +11,18 @@ export default function Navbar({ userName, onLogout }: NavbarProps) {
   return (
     <>
       <header className="bg-primary text-white">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3.5">
+        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 py-2 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
             <img
               src={iconoBiess}
               alt="Logo oficial BIESS"
               className="h-10 w-10 shrink-0 object-contain"
             />
             <div className="min-w-0">
-              <span className="block text-xs font-medium text-white/80 leading-none sm:text-sm">
+              <span className="block text-sm font-medium leading-none text-white/80">
                 Banco del IESS
               </span>
-              <p className="truncate text-base font-semibold leading-snug text-white sm:text-lg">
+              <p className="text-balance text-base font-semibold leading-snug text-white sm:text-lg">
                 Concurso Público de Méritos y Oposición
               </p>
             </div>
