@@ -7,6 +7,7 @@ import TextField from '@/components/ui/TextField';
 import LockoutNotice from '@/features/auth/components/LockoutNotice';
 import { useCountdown } from '@/features/auth/hooks/useCountdown';
 import { api, normalizeError } from '@/services/api/client';
+import { setAccessToken } from '@/store/authStore';
 
 export interface LoginResponse {
   access_token: string;
@@ -58,6 +59,7 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
 
       setSuccessMessage('Sesión iniciada correctamente. Redirigiendo a su postulación…');
       if (response.data?.data) {
+        setAccessToken(response.data.data.access_token);
         onLoginSuccess?.(response.data.data);
       }
     } catch (error) {

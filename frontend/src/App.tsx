@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import LoginPage from '@/features/auth/pages/LoginPage';
 import RegisterPage from '@/features/auth/pages/RegisterPage';
+import { clearSession } from '@/store/authStore';
+import { api, refreshAccessToken } from './services/api/client';
 
 const footerLinks = [
   { label: 'Ayuda', href: '#ayuda' },
@@ -15,8 +17,36 @@ type AuthView = 'login' | 'register';
 function App() {
   const [currentView, setCurrentView] = useState<AuthView>('login');
   const [authenticatedUser, setAuthenticatedUser] = useState<string | undefined>(undefined);
+  const [isRestoring, setIsRestoring] = useState(true);
 
-  const handleLogout = () => {
+
+  useEffect(() => {
+    (async () => {
+      const token = await refreshAccessToken();
+      if (token) {
+        try {
+          const { data } = await api.get<{ data: { email: string } }>('/auth/me');
+          setAuthenticatedUser(data.data.email);
+        } catch {
+          // la sesión no es válida
+        }
+      }
+      setIsRestoring(false);
+    })();
+  }, []);
+
+  if (isRestoring) return null; // o un spinner, para no mostrar el login un instante
+
+
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // aunque falle, la sesión local se limpia igual
+    } finally {
+      clearSession();
+    }
     setAuthenticatedUser(undefined);
     setCurrentView('login');
   };
