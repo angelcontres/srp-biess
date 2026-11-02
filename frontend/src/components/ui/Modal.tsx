@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
-import type { KeyboardEvent, ReactNode } from 'react';
+import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -14,6 +14,8 @@ export interface ModalProps {
    */
   footer?: ReactNode;
   className?: string;
+  /** Element focused on open; defaults to the title. Use it for the safe option in confirmations. */
+  initialFocusRef?: RefObject<HTMLElement>;
 }
 
 const FOCUSABLE_SELECTOR = [
@@ -32,6 +34,7 @@ export default function Modal({
   children,
   footer,
   className = '',
+  initialFocusRef,
 }: ModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -42,7 +45,7 @@ export default function Modal({
     if (!open) return undefined;
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
-    titleRef.current?.focus();
+    (initialFocusRef?.current ?? titleRef.current)?.focus();
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -51,7 +54,7 @@ export default function Modal({
       document.body.style.overflow = previousOverflow;
       previouslyFocused.current?.focus();
     };
-  }, [open]);
+  }, [open, initialFocusRef]);
 
   if (!open) return null;
 
