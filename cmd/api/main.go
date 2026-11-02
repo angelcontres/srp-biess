@@ -51,6 +51,9 @@ func main() {
 	rdb := cache.NewRedisClient(ctx)
 	defer rdb.Close()
 
+	// Almacén de sesiones y refresh tokens en Redis (ADR-006)
+	sessionStore := cache.NewRedisSessionStore(rdb)
+
 	// =========================================================================
 	// FASE 3: Adaptadores de Infraestructura Externa / Mocks (ADR-010)
 	// =========================================================================
@@ -65,7 +68,7 @@ func main() {
 	// =========================================================================
 	// FASE 5: Casos de Uso / Capa de Aplicación (Inyección Manual - ADR-003)
 	// =========================================================================
-	authService := application.NewAuthService(nil, cedulaStrategy)
+	authService := application.NewAuthService(nil, cedulaStrategy, sessionStore)
 	eligibilityService := application.NewEligibilityService(iessMock)
 
 	// =========================================================================
@@ -98,6 +101,7 @@ func main() {
 		HealthHandler:      healthHandler,
 		AuthHandler:        authHandler,
 		EligibilityHandler: eligibilityHandler,
+		AuthService:        authService,
 	})
 
 	// =========================================================================
