@@ -57,6 +57,17 @@ func main() {
 	// =========================================================================
 	// FASE 3: Adaptadores de Infraestructura Externa / Mocks (ADR-010)
 	// =========================================================================
+	// TODO(backend: SRP-006 / SRP-009, dueño por confirmar): el frontend de SRP-012 ya consume
+	// POST /api/v1/auth/registro/validar-identidad (SDD 7.4.1) y el bloqueo 423. Carlos Patiño
+	// (frontend) llegó a implementarlo aquí, pero no le pertenecía a su ticket y se retiró. Falta:
+	//   - Inyectar este mock en AuthService (hoy se descarta con `_ =`) y exponer el endpoint:
+	//     200 { identidadValidada, tokenValidacion (JWT 10 min con la cédula), datos },
+	//     422 AUTH_IDENTIDAD_INVALIDA con mensaje genérico, 503 INTEGRACION_NO_DISPONIBLE.
+	//     El mock espera la fecha como YYYY-MM-DD (el frontend ya la convierte).
+	//   - SRP-006: al 3er intento fallido de la misma cédula, 423 con `Retry-After: 600` y el mensaje
+	//     exacto "registro fallido, inténtelo nuevamente en 10 minutos" (registro y login).
+	//   - CORS: añadir `ExposeHeaders: "Retry-After"` para que la SPA lea el tiempo restante.
+	//   - Respuestas con el sobre { success, data } / { success, error }: el frontend lee data.data y error.
 	_ = external.NewMockIdentityProvider() // implements domain.IdentityProvider
 	iessMock := external.NewMockEmploymentProvider()          // implements domain.EmploymentHistoryProvider
 

@@ -34,6 +34,8 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 		auth.Post("/validate-cedula", cfg.AuthHandler.ValidarCedula)
 		auth.Post("/login", cfg.AuthHandler.Login)
 		auth.Post("/refresh", cfg.AuthHandler.Refresh)
+		// TODO(backend): falta auth.Post("/registro/validar-identidad", ...) (SDD 7.4.1), que el
+		// frontend de SRP-012 ya consume. Detalle y alcance en el TODO de cmd/api/main.go.
 
 		// Endpoints protegidos con Access Token JWT (15 min)
 		if cfg.AuthService != nil {
