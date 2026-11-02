@@ -60,9 +60,9 @@
 * **Rama:** `feature/auth-jwt-di`
 * **Descripción:** Implementar el servicio de tokens con Argon2id para contraseñas, Access Token JWT (15 min) y verificación de Refresh Token opaco en cookie `HttpOnly` (ADR-006).
 * **Criterios de Aceptación:**
-  - [ ] Middleware valida cabecera `Authorization: Bearer <token>`.
-  - [ ] Peticiones sin token o expiradas devuelven HTTP 401 estructurado.
-  - [ ] Inyección de contexto del usuario autenticado (`postulante_id`) en cada request.
+  - [x] Middleware valida cabecera `Authorization: Bearer <token>`.
+  - [x] Peticiones sin token o expiradas devuelven HTTP 401 estructurado.
+  - [x] Inyección de contexto del usuario autenticado (`postulante_id`) en cada request.
 
 ---
 
