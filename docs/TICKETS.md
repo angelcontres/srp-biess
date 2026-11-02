@@ -76,8 +76,8 @@
 * **Rama:** `feature/postgres-transactions-ddl`
 * **Descripción:** Crear capa de acceso a datos utilizando `pgxpool` implementando los repositorios para `postulante`, `postulacion`, `catalogo` y `documento`.
 * **Criterios de Aceptación:**
-  - [ ] Conexiones concurrentes controladas mediante parámetros de entorno.
-  - [ ] Repositorios utilizan interfaces que aceptan tanto el pool como una transacción activa (`Querier`).
+  - [x] Conexiones concurrentes controladas mediante parámetros de entorno.
+  - [x] Repositorios utilizan interfaces que aceptan tanto el pool como una transacción activa (`Querier`).
 
 ---
 
@@ -179,8 +179,8 @@
 * **Rama:** `feature/frontend-spa-ui`
 * **Descripción:** Inicializar el proyecto SPA con Vite, Tailwind CSS utilitario, estructura organizada por `features/` (`auth/`, `postulacion/`, `pagos/`, `shared/`) y configuración de Axios con `baseURL` dinámico.
 * **Criterios de Aceptación:**
-  - [ ] Interfaz completamente responsiva (Mobile, Tablet y Desktop).
-  - [ ] Componentes base reutilizables: botones, inputs con validación, modales, alertas y spinners/loaders.
+  - [x] Interfaz completamente responsiva (Mobile, Tablet y Desktop).
+  - [x] Componentes base reutilizables: botones, inputs con validación, modales, alertas y spinners/loaders.
 
 ---
 

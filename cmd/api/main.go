@@ -51,6 +51,21 @@ func main() {
 	rdb := cache.NewRedisClient(ctx)
 	defer rdb.Close()
 
+	// Repositorios de Persistencia Relacional PostgreSQL (SRP-004)
+	var postulanteRepo domain.PostulanteRepository
+	var catalogoRepo domain.CatalogoRepository
+	var postulacionRepo domain.PostulacionRepository
+	var documentoRepo domain.DocumentoRepository
+
+	if pool != nil {
+		postulanteRepo = database.NewPostgresPostulanteRepository(pool)
+		catalogoRepo = database.NewPostgresCatalogoRepository(pool)
+		postulacionRepo = database.NewPostgresPostulacionRepository(pool)
+		documentoRepo = database.NewPostgresDocumentoRepository(pool)
+		_ = postulacionRepo
+		_ = documentoRepo
+	}
+
 	// Almacén de sesiones y refresh tokens en Redis (ADR-006)
 	sessionStore := cache.NewRedisSessionStore(rdb)
 
@@ -79,8 +94,9 @@ func main() {
 	// =========================================================================
 	// FASE 5: Casos de Uso / Capa de Aplicación (Inyección Manual - ADR-003)
 	// =========================================================================
-	authService := application.NewAuthService(nil, cedulaStrategy, sessionStore)
+	authService := application.NewAuthService(postulanteRepo, cedulaStrategy, sessionStore)
 	eligibilityService := application.NewEligibilityService(iessMock)
+	_ = application.NewCatalogoService(catalogoRepo)
 
 	// =========================================================================
 	// FASE 6: Capa de Presentación (Handlers HTTP & DTOs)

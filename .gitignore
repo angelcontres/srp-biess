@@ -21,6 +21,9 @@ build/
 .npm/
 *.tsbuildinfo
 
+# Dependencias de python
+__pycache__/
+
 # Artefactos y binarios de Go
 bin/
 *.exe
