@@ -98,6 +98,7 @@ func main() {
 		HealthHandler:      healthHandler,
 		AuthHandler:        authHandler,
 		EligibilityHandler: eligibilityHandler,
+		AuthService:        authService,
 	})
 
 	// =========================================================================
