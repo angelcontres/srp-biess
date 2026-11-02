@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import LandingPage from '@/features/auth/pages/LandingPage';
 import LoginPage from '@/features/auth/pages/LoginPage';
 import RegisterPage from '@/features/auth/pages/RegisterPage';
+import { clearAllDrafts } from '@/features/postulacion/hooks/useDraftCache';
+import Skeleton from '@/components/ui/Skeleton';
 import { clearSession } from '@/store/authStore';
 import { api, refreshAccessToken } from './services/api/client';
+
+// SDD 6.13: the form is code-split; it loads only after authentication.
+const PostulacionPage = lazy(() => import('@/features/postulacion/pages/PostulacionPage'));
 
 const footerLinks = [
   { label: 'Ayuda', href: '#ayuda' },
@@ -47,6 +52,7 @@ function App() {
       // aunque falle, la sesión local se limpia igual
     } finally {
       clearSession();
+      clearAllDrafts(); // the local form draft never outlives the session (DESIGN states.md)
     }
     setAuthenticatedUser(undefined);
     setCurrentView('landing');
@@ -64,7 +70,18 @@ function App() {
       <Navbar userName={authenticatedUser} onLogout={handleLogout} />
 
       <main id="main-content" className="flex-1">
-        {currentView === 'landing' ? (
+        {authenticatedUser ? (
+          // RF-EF11-10: an authenticated applicant goes straight to the form (SRP-013).
+          <Suspense
+            fallback={
+              <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+                <Skeleton label="Cargando su postulación" />
+              </div>
+            }
+          >
+            <PostulacionPage />
+          </Suspense>
+        ) : currentView === 'landing' ? (
           <LandingPage
             onNavigateToLogin={() => setCurrentView('login')}
             onNavigateToRegister={() => setCurrentView('register')}
