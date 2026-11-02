@@ -76,8 +76,8 @@
 * **Rama:** `feature/postgres-transactions-ddl`
 * **Descripción:** Crear capa de acceso a datos utilizando `pgxpool` implementando los repositorios para `postulante`, `postulacion`, `catalogo` y `documento`.
 * **Criterios de Aceptación:**
-  - [ ] Conexiones concurrentes controladas mediante parámetros de entorno.
-  - [ ] Repositorios utilizan interfaces que aceptan tanto el pool como una transacción activa (`Querier`).
+  - [x] Conexiones concurrentes controladas mediante parámetros de entorno.
+  - [x] Repositorios utilizan interfaces que aceptan tanto el pool como una transacción activa (`Querier`).
 
 ---
 
