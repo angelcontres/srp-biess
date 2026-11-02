@@ -38,7 +38,7 @@ export default function LockoutNotice({
           size={20}
           strokeWidth={2}
           aria-hidden="true"
-          className="mt-0.5 shrink-0 text-danger"
+          className="shrink-0 text-danger"
         />
         <div className="min-w-0 flex-1">
           <div role="alert">

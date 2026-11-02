@@ -156,7 +156,7 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
               Método de validación <span className="font-normal text-muted">(obligatorio)</span>
             </legend>
             <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
-              <label className="flex items-center gap-2 text-base text-neutral-900 cursor-pointer">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2 text-base text-neutral-900">
                 <input
                   type="radio"
                   name="tipoValidacion"
@@ -173,7 +173,7 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
                 Fecha de expedición
               </label>
 
-              <label className="flex items-center gap-2 text-base text-neutral-900 cursor-pointer">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2 text-base text-neutral-900">
                 <input
                   type="radio"
                   name="tipoValidacion"
