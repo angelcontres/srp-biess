@@ -34,43 +34,52 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-lg">
-        <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold text-neutral-900">Portal de Postulaciones</h2>
-          <p className="mt-1 text-sm text-neutral-900/60">
-            Ingrese su cédula de identidad para verificar su registro conforme a la Resolución C.D.
-            701
-          </p>
-        </div>
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mx-auto max-w-lg rounded-lg border border-line-strong bg-surface p-4 sm:p-6">
+        <h1 className="text-xl font-bold leading-tight sm:text-2xl">Portal de postulaciones</h1>
+        <p className="mt-2 max-w-prose text-base text-neutral-700">
+          Ingrese su cédula de identidad para verificar su registro conforme a la Resolución C.D.
+          701.
+        </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-6" noValidate>
           <TextField
-            label="Cédula de Identidad (10 dígitos)"
+            label="Cédula de identidad"
             value={cedula}
             onChange={(event) => setCedula(event.target.value.replace(/\D/g, ''))}
-            placeholder="Ej. 0926687856"
             maxLength={10}
             inputMode="numeric"
-            autoComplete="off"
+            autoComplete="username"
             required
-            className="text-center font-mono text-lg tracking-widest"
-            helperText="Solo dígitos. El sistema valida el algoritmo Módulo 10."
+            className="tabular-nums"
+            helperText="Ingrese los 10 números de su cédula."
           />
 
-          <Button type="submit" size="lg" fullWidth isLoading={isLoading} disabled={cedula.length !== 10} loadingText="Validando Módulo 10...">
-            Verificar e Ingresar
+          <Button
+            type="submit"
+            fullWidth
+            isLoading={isLoading}
+            disabled={cedula.length !== 10}
+            loadingText="Validando cédula…"
+          >
+            Ingresar
           </Button>
+
+          {cedula.length !== 10 ? (
+            <p className="text-sm text-muted">
+              El botón se habilita cuando la cédula tiene 10 números.
+            </p>
+          ) : null}
         </form>
 
         {successMessage ? (
-          <Alert variant="success" title="Cédula válida" className="mt-4">
+          <Alert variant="success" title="Cédula válida" className="mt-6">
             {successMessage}
           </Alert>
         ) : null}
 
         {errorMessage ? (
-          <Alert variant="danger" title="Error de validación" className="mt-4">
+          <Alert variant="danger" title="No fue posible validar la cédula" className="mt-6">
             {errorMessage}
           </Alert>
         ) : null}

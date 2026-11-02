@@ -1,15 +1,16 @@
+import { LoaderCircle } from 'lucide-react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import Spinner from '@/components/ui/Spinner';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  /** All sizes keep the 44 px control height; only horizontal padding changes. */
   size?: ButtonSize;
-  /** Disables the button and replaces its label with a spinner. */
+  /** Blocks further clicks and swaps the label for a loader while keeping the width stable. */
   isLoading?: boolean;
-  /** Label shown while `isLoading` is true. */
+  /** Text shown while `isLoading` is true, for example "Guardando…". */
   loadingText?: string;
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
@@ -17,27 +18,20 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary:
-    'bg-primary text-white hover:bg-primary-dark focus-visible:outline-primary disabled:hover:bg-primary',
-  secondary:
-    'bg-secondary text-neutral-900 hover:bg-secondary/90 focus-visible:outline-secondary disabled:hover:bg-secondary',
-  outline:
-    'border border-primary bg-transparent text-primary hover:bg-primary/5 focus-visible:outline-primary',
-  danger:
-    'bg-danger text-white hover:bg-danger/90 focus-visible:outline-danger disabled:hover:bg-danger',
+  primary: 'border border-transparent bg-primary text-white hover:bg-primary-dark',
+  secondary: 'border border-primary bg-surface text-primary hover:bg-info-50',
+  tertiary: 'text-primary underline underline-offset-4 hover:text-primary-dark',
+  danger: 'border border-transparent bg-danger text-white hover:brightness-90',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-sm gap-1.5',
-  md: 'px-4 py-2.5 text-sm gap-2',
-  lg: 'px-6 py-3 text-base gap-2.5',
+  sm: 'h-11 px-4',
+  md: 'h-11 px-5',
+  lg: 'h-11 px-6',
 };
 
-const spinnerSizeByButtonSize: Record<ButtonSize, 'sm' | 'md' | 'lg'> = {
-  sm: 'sm',
-  md: 'sm',
-  lg: 'md',
-};
+const focusClasses =
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-dark';
 
 export default function Button({
   variant = 'primary',
@@ -47,25 +41,33 @@ export default function Button({
   leftIcon,
   rightIcon,
   fullWidth = false,
-  disabled,
+  disabled = false,
   className = '',
   children,
   type = 'button',
+  onClick,
   ...rest
 }: ButtonProps) {
-  const isDisabled = disabled === true || isLoading;
+  const paddingClasses = variant === 'tertiary' ? 'h-auto px-0' : sizeClasses[size];
 
   return (
     <button
       type={type}
-      disabled={isDisabled}
-      aria-busy={isLoading || undefined}
+      disabled={disabled}
+      aria-disabled={isLoading || undefined}
+      onClick={(event) => {
+        if (isLoading) {
+          event.preventDefault();
+          return;
+        }
+        onClick?.(event);
+      }}
       className={[
-        'inline-flex items-center justify-center rounded-lg font-medium transition-colors',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-        'disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex items-center justify-center gap-2 rounded-md text-base font-semibold',
         variantClasses[variant],
-        sizeClasses[size],
+        paddingClasses,
+        focusClasses,
+        'disabled:border disabled:border-line-input disabled:bg-neutral-100 disabled:text-muted disabled:no-underline',
         fullWidth ? 'w-full' : '',
         className,
       ]
@@ -74,13 +76,20 @@ export default function Button({
       {...rest}
     >
       {isLoading ? (
-        <>
-          <Spinner
-            size={spinnerSizeByButtonSize[size]}
-            color={variant === 'outline' ? 'primary' : 'current'}
-          />
-          <span>{loadingText ?? children}</span>
-        </>
+        <span className="inline-grid">
+          <span className="invisible col-start-1 row-start-1 inline-flex items-center gap-2">
+            {children}
+          </span>
+          <span className="col-start-1 row-start-1 inline-flex items-center justify-center gap-2 whitespace-nowrap">
+            <LoaderCircle
+              size={20}
+              strokeWidth={2}
+              aria-hidden="true"
+              className="shrink-0 motion-safe:animate-spin"
+            />
+            {loadingText ?? children}
+          </span>
+        </span>
       ) : (
         <>
           {leftIcon}
