@@ -10,20 +10,22 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
 
 	"srp-biess/internal/application"
+	"srp-biess/internal/domain"
 	"srp-biess/internal/infrastructure/cache"
 	"srp-biess/internal/infrastructure/database"
+	"srp-biess/internal/infrastructure/external"
 	interfacesHTTP "srp-biess/internal/interfaces/http"
 	"srp-biess/internal/interfaces/http/handlers"
+	"srp-biess/internal/interfaces/http/middleware"
 )
 
 func main() {
-	// 1. Cargar Variables de Entorno
+	// =========================================================================
+	// FASE 1: Variables de Entorno y Señales del Sistema Operativo
+	// =========================================================================
 	if err := godotenv.Load(); err != nil {
 		log.Println("[INFO] Archivo .env no encontrado, usando variables de entorno del sistema")
 	}
@@ -33,10 +35,12 @@ func main() {
 
 	log.Println("========================================================")
 	log.Println("  SRP-BIESS: Backend API (Go 1.22+ & Fiber v2)")
-	log.Println("  Arquitectura Limpia & Inyección Manual de Dependencias")
+	log.Println("  Composition Root & Inyección Manual de Dependencias (ADR-003)")
 	log.Println("========================================================")
 
-	// 2. Infraestructura: Conexiones a PostgreSQL y Redis
+	// =========================================================================
+	// FASE 2: Conexiones de Infraestructura (PostgreSQL & Redis)
+	// =========================================================================
 	pool, err := database.NewPostgresPool(ctx)
 	if err != nil {
 		log.Printf("[ALERTA] Error al iniciar pool de base de datos: %v", err)
@@ -47,15 +51,52 @@ func main() {
 	rdb := cache.NewRedisClient(ctx)
 	defer rdb.Close()
 
-	// 3. Servicios de Aplicación (Inyección Manual - ADR-003)
-	// (Por ahora postulanteRepo es nil hasta el Ticket SRP-004 de persistencia)
-	authService := application.NewAuthService(nil)
+	// Repositorios de Persistencia Relacional PostgreSQL (SRP-004)
+	var postulanteRepo domain.PostulanteRepository
+	var catalogoRepo domain.CatalogoRepository
+	var postulacionRepo domain.PostulacionRepository
+	var documentoRepo domain.DocumentoRepository
 
-	// 4. Handlers HTTP
+	if pool != nil {
+		postulanteRepo = database.NewPostgresPostulanteRepository(pool)
+		catalogoRepo = database.NewPostgresCatalogoRepository(pool)
+		postulacionRepo = database.NewPostgresPostulacionRepository(pool)
+		documentoRepo = database.NewPostgresDocumentoRepository(pool)
+		_ = postulacionRepo
+		_ = documentoRepo
+	}
+
+	// Almacén de sesiones y refresh tokens en Redis (ADR-006)
+	sessionStore := cache.NewRedisSessionStore(rdb)
+
+	// =========================================================================
+	// FASE 3: Adaptadores de Infraestructura Externa / Mocks (ADR-010)
+	// =========================================================================
+	_ = external.NewMockIdentityProvider() // implements domain.IdentityProvider
+	iessMock := external.NewMockEmploymentProvider()          // implements domain.EmploymentHistoryProvider
+
+	// =========================================================================
+	// FASE 4: Estrategias de Dominio (Patrón Strategy - ADR-013)
+	// =========================================================================
+	cedulaStrategy := domain.NewCedulaEcuatorianaStrategy() // implements domain.DocumentValidationStrategy
+
+	// =========================================================================
+	// FASE 5: Casos de Uso / Capa de Aplicación (Inyección Manual - ADR-003)
+	// =========================================================================
+	authService := application.NewAuthService(postulanteRepo, cedulaStrategy, sessionStore)
+	eligibilityService := application.NewEligibilityService(iessMock)
+	_ = application.NewCatalogoService(catalogoRepo)
+
+	// =========================================================================
+	// FASE 6: Capa de Presentación (Handlers HTTP & DTOs)
+	// =========================================================================
 	healthHandler := handlers.NewHealthHandler()
 	authHandler := handlers.NewAuthHandler(authService)
+	eligibilityHandler := handlers.NewEligibilityHandler(eligibilityService)
 
-	// 5. Instanciar Servidor Fiber con Middlewares Globales
+	// =========================================================================
+	// FASE 7: Servidor Fiber & Middlewares Globales (SRP-001)
+	// =========================================================================
 	app := fiber.New(fiber.Config{
 		AppName:      "SRP-BIESS API v1.0",
 		ServerHeader: "Fiber",
@@ -64,25 +105,24 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	})
 
-	app.Use(recover.New())
-	app.Use(logger.New(logger.Config{
-		Format:     "[${time}] ${status} - ${latency} | ${method} ${path}\n",
-		TimeFormat: "15:04:05",
-		TimeZone:   "America/Guayaquil",
-	}))
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
-	}))
+	app.Use(middleware.NewRequestID())
+	app.Use(middleware.NewCORS())
+	app.Use(middleware.NewStructuredLogger())
+	app.Use(middleware.NewRecover())
 
-	// 6. Configurar Rutas
+	// =========================================================================
+	// FASE 8: Configuración de Rutas Desacopladas
+	// =========================================================================
 	interfacesHTTP.SetupRoutes(app, interfacesHTTP.RouterConfig{
-		HealthHandler: healthHandler,
-		AuthHandler:   authHandler,
+		HealthHandler:      healthHandler,
+		AuthHandler:        authHandler,
+		EligibilityHandler: eligibilityHandler,
+		AuthService:        authService,
 	})
 
-	// 7. Arrancar Servidor con Graceful Shutdown
+	// =========================================================================
+	// FASE 9: Servidor HTTP & Graceful Shutdown
+	// =========================================================================
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

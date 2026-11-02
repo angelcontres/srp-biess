@@ -36,21 +36,21 @@
   * `internal/infrastructure/` (Implementaciones de repositorios y adaptadores)
   * `internal/interfaces/http/` (Handlers, DTOs y Router)
 * **Criterios de Aceptación:**
-  - [ ] El proyecto compila con `go build ./cmd/api`.
-  - [ ] Ningún paquete de dominio importa dependencias de infraestructura o base de datos.
-  - [ ] Middleware global de recover, logger estructurado JSON y CORS configurados.
+  - [x] El proyecto compila con `go build ./cmd/api`.
+  - [x] Ningún paquete de dominio importa dependencias de infraestructura o base de datos.
+  - [x] Middleware global de recover, logger estructurado JSON y CORS configurados.
 
 ---
 
 ### Ticket `SRP-002`: Implementación del Composition Root con Inyección Manual
 * **Tipo:** Feature
 * **Asignado:** Paulo Rafael Orrala Arriaga
-* **Rama:** `feature/backend-clean-arch`
+* **Rama:** eature/composition-root-di
 * **Descripción:** Implementar en `cmd/api/main.go` la instanciación e inyección manual de dependencias (`Handler` $\to$ `Service` $\to$ `Repository`) sin magia de frameworks ni contenedores de reflexión (ADR-003).
 * **Criterios de Aceptación:**
-  - [ ] Cada constructor recibe interfaces explícitas.
-  - [ ] La inicialización de la conexión de PostgreSQL (`pgxpool`) y Redis se inyecta desde `main.go`.
-  - [ ] Facilidad para sustentar el flujo de dependencias en menos de 2 minutos ante el docente.
+  - [x] Cada constructor recibe interfaces explícitas.
+  - [x] La inicialización de la conexión de PostgreSQL (`pgxpool`) y Redis se inyecta desde `main.go`.
+  - [x] Facilidad para sustentar el flujo de dependencias en menos de 2 minutos ante el docente.
 
 ---
 
@@ -60,9 +60,9 @@
 * **Rama:** `feature/auth-jwt-di`
 * **Descripción:** Implementar el servicio de tokens con Argon2id para contraseñas, Access Token JWT (15 min) y verificación de Refresh Token opaco en cookie `HttpOnly` (ADR-006).
 * **Criterios de Aceptación:**
-  - [ ] Middleware valida cabecera `Authorization: Bearer <token>`.
-  - [ ] Peticiones sin token o expiradas devuelven HTTP 401 estructurado.
-  - [ ] Inyección de contexto del usuario autenticado (`postulante_id`) en cada request.
+  - [x] Middleware valida cabecera `Authorization: Bearer <token>`.
+  - [x] Peticiones sin token o expiradas devuelven HTTP 401 estructurado.
+  - [x] Inyección de contexto del usuario autenticado (`postulante_id`) en cada request.
 
 ---
 
@@ -76,8 +76,8 @@
 * **Rama:** `feature/postgres-transactions-ddl`
 * **Descripción:** Crear capa de acceso a datos utilizando `pgxpool` implementando los repositorios para `postulante`, `postulacion`, `catalogo` y `documento`.
 * **Criterios de Aceptación:**
-  - [ ] Conexiones concurrentes controladas mediante parámetros de entorno.
-  - [ ] Repositorios utilizan interfaces que aceptan tanto el pool como una transacción activa (`Querier`).
+  - [x] Conexiones concurrentes controladas mediante parámetros de entorno.
+  - [x] Repositorios utilizan interfaces que aceptan tanto el pool como una transacción activa (`Querier`).
 
 ---
 
@@ -148,9 +148,9 @@
 * **Rama:** `feature/mocks-payments-invoicing`
 * **Descripción:** Diseñar puertos desacoplados `IdentityProvider` y `EmploymentHistoryProvider` con implementaciones Mock deterministas para la demostración académica (ADR-010).
 * **Criterios de Aceptación:**
-  - [ ] Simulación de validación dactilar y fecha de expedición con respuestas exitosas y de fallo.
-  - [ ] Validación de condición de Afiliado, Jubilado o Empleador según la cédula ingresada.
-  - [ ] Rechazo automático con mensaje reglamentario si no cumple la calidad solicitada.
+  - [x] Simulación de validación dactilar y fecha de expedición con respuestas exitosas y de fallo.
+  - [x] Validación de condición de Afiliado, Jubilado o Empleador según la cédula ingresada.
+  - [x] Rechazo automático con mensaje reglamentario si no cumple la calidad solicitada.
 
 ---
 
@@ -179,8 +179,8 @@
 * **Rama:** `feature/frontend-spa-ui`
 * **Descripción:** Inicializar el proyecto SPA con Vite, Tailwind CSS utilitario, estructura organizada por `features/` (`auth/`, `postulacion/`, `pagos/`, `shared/`) y configuración de Axios con `baseURL` dinámico.
 * **Criterios de Aceptación:**
-  - [ ] Interfaz completamente responsiva (Mobile, Tablet y Desktop).
-  - [ ] Componentes base reutilizables: botones, inputs con validación, modales, alertas y spinners/loaders.
+  - [x] Interfaz completamente responsiva (Mobile, Tablet y Desktop).
+  - [x] Componentes base reutilizables: botones, inputs con validación, modales, alertas y spinners/loaders.
 
 ---
 

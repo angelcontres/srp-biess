@@ -1,0 +1,37 @@
+---
+description: Reglas de diseño de interfaz del sistema de postulación BIESS (DESIGN.md)
+globs:
+alwaysApply: true
+---
+
+## Diseño de interfaz
+
+Este proyecto es el sistema de postulación al Concurso Público de Méritos y Oposición del BIESS: un servicio público digital, no un producto de consumo.
+
+**Antes de escribir o modificar cualquier interfaz, lee `DESIGN.md` en la raíz del proyecto.** Es la fuente de verdad visual y prevalece sobre cualquier valor por defecto de Tailwind, de librerías de componentes o de costumbre. Las reglas de negocio y los textos institucionales están en el SDD (`08-diseno-interfaz-usuario.md` y los documentos que referencia); no los inventes: usa `[PENDIENTE: …]`.
+
+Stack: React, Tailwind CSS 3.4.17 (con `theme.colors` reemplazado por los tokens de DESIGN.md) y `lucide-react` ^0.474.0.
+
+Reglas que nunca se rompen:
+
+- Solo clases de tokens de DESIGN.md. Ningún hex, `rgb()`, valor arbitrario (`p-[13px]`) ni paleta por defecto (`gray-*`, `slate-*`, `blue-*`…).
+- Contenedores con `border border-line-strong` y sin sombra; inputs con `border-line-input`; `line` solo para divisores internos.
+- Radios: botones e inputs `rounded-md`, tarjetas y modales `rounded-lg`, badges `rounded`. Nada mayor que `rounded-lg`.
+- Foco con `outline` (`focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-dark`), nunca `ring`.
+- Un solo botón primario por pantalla. Controles de 44 px de alto (`h-11`).
+- Todo estado con icono + texto; nunca solo color.
+- Spinner solo dentro de botones; skeleton para cargas de layout.
+- Un error del servidor nunca borra los datos del formulario.
+- Prohibido: emojis, el punto medio `·`, `uppercase`, `backdrop-blur`, degradados, shimmer, toggles para Sí/No, fuente monoespaciada y placeholders como etiqueta.
+- Textos en usted; términos fijos "postulación" y "sección"; fechas con `Intl` `es-EC` y zona `America/Guayaquil`.
+- Accesibilidad WCAG 2.2 AA como mínimo.
+
+Comandos disponibles en `.cursor/commands/`:
+
+- `/new-page`: Crea una nueva página o ruta del sistema de postulación BIESS siguiendo el layout, la tipografía y el espaciado de DESIGN.md. Úsala cuando se pida una pantalla nueva (login, resultado, Mi postulación, error, landing). Para secciones del formulario de postulación usa new-form-section.
+- `/new-form-section`: Crea una de las 10 secciones del formulario de postulación BIESS (Personal, Domicilio, Familiares, Cargo, Formación, Experiencia, Publicaciones, Capacitación, Inhabilidades, Resumen) con barra de sección sticky, guardado, borrador local, resumen de errores y estados de carga y error según DESIGN.md.
+- `/new-component`: Crea un componente de interfaz reutilizable para el sistema de postulación BIESS usando solo los tokens, radios, bordes, estados y reglas de accesibilidad de DESIGN.md. Úsala cuando se pida un botón, campo, tarjeta, alerta, badge, modal u otro componente nuevo.
+- `/add-section`: Agrega un bloque de contenido o un grupo de campos a una página existente del sistema de postulación BIESS, respetando el espaciado, la escala tipográfica y el layout responsive de DESIGN.md. Úsala cuando se pida añadir un bloque, aviso, grupo de preguntas o lista a una pantalla ya creada.
+- `/design-audit`: Audita un archivo o carpeta del sistema de postulación BIESS contra DESIGN.md (tokens, forma, componentes, accesibilidad, contenido y prohibiciones) y reporta las violaciones en una tabla sin modificar archivos. Úsala para revisar código de interfaz antes de un commit, un PR o una entrega.
+- `/responsive-check`: Verifica que una página del sistema de postulación BIESS funcione en todos los breakpoints de DESIGN.md (320 a 1280 px y zoom), detectando desbordes, superposiciones, controles pequeños y foco tapado, y propone arreglos con tokens existentes. Úsala tras crear o cambiar una pantalla.
+- `/token-check`: Busca en el código del sistema de postulación BIESS colores, medidas, radios, sombras y fuentes hardcodeados o fuera de la configuración, y propone el token de DESIGN.md que debe reemplazarlos, sin aplicar cambios sin confirmación. Úsala antes de un commit o cuando se sospeche que se usan valores sueltos.
