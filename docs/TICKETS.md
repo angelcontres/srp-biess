@@ -211,9 +211,25 @@
   * Sección 6: Inhabilidades (13 preguntas con alertas).
   * Sección 7: Consentimiento informado y firma digital.
 * **Criterios de Aceptación:**
-  - [ ] Botón de "Guardar Progreso" en cada sección para evitar pérdida de datos.
-  - [ ] Cálculo automático del tiempo de experiencia laboral acumulada en años, meses y días.
-  - [ ] Validación de archivos PDF (máximo 2 MB / 4 MB según corresponda) con vista previa del nombre cargado.
+  - [x] Botón de "Guardar Progreso" en cada sección para evitar pérdida de datos.
+  - [x] Cálculo automático del tiempo de experiencia laboral acumulada en años, meses y días.
+  - [x] Validación de archivos PDF (máximo 2 MB / 4 MB según corresponda) con vista previa del nombre cargado.
+* **Notas de implementación:**
+  * El formulario sigue las 10 secciones de SRS 3.5.1 / SDD 8.3 (Personal, Domicilio, Familiares, Cargo, Formación, Experiencia, Publicaciones, Capacitación, Inhabilidades, Resumen). La "firma digital" no se implementa: el SDD 8.5.9 indica que el PDF se imprime y firma a mano.
+  * Código en `frontend/src/features/postulacion/`. Pruebas: `cd frontend && npm test`.
+* **Integración backend mínima (autorizada por el responsable del frontend):** ningún ticket asignaba la exposición HTTP de la postulación (SDD 7.3.4) y el formulario la necesita para guardar contra PostgreSQL. Se implementaron, protegidos con JWT:
+
+  | Método | Ruta | Función |
+  |---|---|---|
+  | GET | `/api/v1/postulaciones/actual` | Postulación vigente del postulante o 404 `POS_NO_ENCONTRADA`. |
+  | POST | `/api/v1/postulaciones` | Crea el borrador único por convocatoria (409 `POS_YA_EXISTE`, 409 `POS_FASE_CERRADA`). |
+  | GET | `/api/v1/postulaciones/{id}` | Estado, datos verificados del postulante y valores guardados por sección. |
+  | PATCH / PUT | `/api/v1/postulaciones/{id}/{sección}` | Guarda una sección con control de versión (409 `POS_CONFLICTO_VERSION`). Rutas del SDD: `informacion-personal`, `domicilio`, `familiares`, `respaldo-organizacional`, `formacion-academica`, `experiencia`, `publicaciones`, `capacitaciones`, `inhabilidades`. |
+
+  * Capas (ADR-003): `domain/formulario.go` → `application/formulario_service.go` → `infrastructure/database/formulario_repository.go` → `interfaces/http/handlers/postulacion_handler.go`; inyección en `cmd/api/main.go`.
+  * **Almacenamiento transitorio:** cada sección se guarda como JSONB en la tabla nueva `postulacion_seccion` (`db/migrations/001_postulacion_seccion.sql`, también añadida a `db/init.sql`). En una base existente se aplica con `docker exec -i srp-biess-postgres psql -U srp_user -d srp_biess < db/migrations/001_postulacion_seccion.sql`.
+  * El guardado es atómico en una sola sentencia SQL (versión + sección), sin depender del `TxManager`.
+  * **Pendiente para SRP-005:** normalizar las secciones en las tablas de SDD 4.6; validar en servidor cada sección (RF-EF12-24; hoy la completitud la informa el cliente); `PUT /cargo` con elegibilidad, `/documentos`, `/guardar` y `/enviar`. Los catálogos geográficos se documentan en SRP-014.
 
 ---
 
@@ -230,8 +246,21 @@
   * Al seleccionar una provincia, se cargan únicamente los cantones de dicha provincia.
   * Si el país es distinto de Ecuador, los selectores de provincia y cantón se convierten dinámicamente en inputs de texto para captura manual.
 * **Criterios de Aceptación:**
-  - [ ] Limpieza automática de campos hijos cuando cambia la selección del padre.
-  - [ ] Manejo de estados de carga (skeletons/spinners) mientras se obtienen los datos.
+  - [x] Limpieza automática de campos hijos cuando cambia la selección del padre.
+  - [x] Manejo de estados de carga (skeletons/spinners) mientras se obtienen los datos.
+* **Notas de implementación:** componente `frontend/src/features/postulacion/components/UbicacionCascada.tsx`, usado en la sección Domicilio de SRP-013. Al cambiar el país se reinician provincia y cantón; al cambiar la provincia se reinicia el cantón; ambos cambios se anuncian a lectores de pantalla. Si la provincia no tiene cantones en el catálogo, se muestra un aviso y el cantón deja de ser obligatorio (RF-EF12-07), para no bloquear el guardado.
+* **Integración backend mínima (autorizada por el responsable del frontend):** se exponen los catálogos públicos de SDD 7.3.2 con el `CatalogoService` y el repositorio existentes de SRP-004:
+
+  | Método | Ruta | Respuesta |
+  |---|---|---|
+  | GET | `/api/v1/catalogos/paises` | Países activos `[{ id, nombre }]`. |
+  | GET | `/api/v1/catalogos/paises/{paisId}/provincias` | Provincias del país (24 para Ecuador). |
+  | GET | `/api/v1/catalogos/provincias/{provinciaId}/cantones` | Solo los cantones de esa provincia; `[]` si no tiene. |
+
+  * Handler `internal/interfaces/http/handlers/catalogo_handler.go`, rutas en `router.go` e inyección en `cmd/api/main.go`. Sin PostgreSQL responden 503; con un identificador no numérico, 400.
+  * Prueba de integración contra el seed: `go test ./internal/interfaces/http/handlers -run Catalogo -v`.
+  * **Pendiente para SRP-007:** caché cache-aside en Redis (TTL 24 h) con fallback a PostgreSQL.
+  * **Pendiente de datos (SRP-004):** el seed solo trae cantones de Azuay, Guayas, Manabí y Pichincha; el seed productivo debe cargar todos los cantones (SDD 16.3).
 
 ---
 
