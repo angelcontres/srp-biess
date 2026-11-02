@@ -45,12 +45,12 @@
 ### Ticket `SRP-002`: Implementación del Composition Root con Inyección Manual
 * **Tipo:** Feature
 * **Asignado:** Paulo Rafael Orrala Arriaga
-* **Rama:** `feature/backend-clean-arch`
+* **Rama:** eature/composition-root-di
 * **Descripción:** Implementar en `cmd/api/main.go` la instanciación e inyección manual de dependencias (`Handler` $\to$ `Service` $\to$ `Repository`) sin magia de frameworks ni contenedores de reflexión (ADR-003).
 * **Criterios de Aceptación:**
-  - [ ] Cada constructor recibe interfaces explícitas.
-  - [ ] La inicialización de la conexión de PostgreSQL (`pgxpool`) y Redis se inyecta desde `main.go`.
-  - [ ] Facilidad para sustentar el flujo de dependencias en menos de 2 minutos ante el docente.
+  - [x] Cada constructor recibe interfaces explícitas.
+  - [x] La inicialización de la conexión de PostgreSQL (`pgxpool`) y Redis se inyecta desde `main.go`.
+  - [x] Facilidad para sustentar el flujo de dependencias en menos de 2 minutos ante el docente.
 
 ---
 
