@@ -1,6 +1,7 @@
 import { forwardRef, useId } from 'react';
 import type { InputHTMLAttributes, ReactNode } from 'react';
 import { CircleAlert, ShieldCheck } from 'lucide-react';
+import { RequiredMark } from './FieldMessages';
 
 export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   label: string;
@@ -50,7 +51,7 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextFiel
       <div className="flex flex-wrap items-center justify-between gap-2">
         <label htmlFor={inputId} className="block text-base font-medium text-neutral-900">
           {label}
-          {required ? <span className="font-normal text-muted"> (obligatorio)</span> : null}
+          {required ? <RequiredMark /> : null}
         </label>
         {labelAdornment ??
           (verified ? (
