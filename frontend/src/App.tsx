@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/layout/Navbar';
+import LandingPage from '@/features/auth/pages/LandingPage';
 import LoginPage from '@/features/auth/pages/LoginPage';
 import RegisterPage from '@/features/auth/pages/RegisterPage';
 import { clearSession } from '@/store/authStore';
@@ -12,10 +13,10 @@ const footerLinks = [
   { label: 'Bases legales del concurso', href: '#bases-legales' },
 ];
 
-type AuthView = 'login' | 'register';
+type AuthView = 'landing' | 'login' | 'register';
 
 function App() {
-  const [currentView, setCurrentView] = useState<AuthView>('login');
+  const [currentView, setCurrentView] = useState<AuthView>('landing');
   const [authenticatedUser, setAuthenticatedUser] = useState<string | undefined>(undefined);
   const [isRestoring, setIsRestoring] = useState(true);
 
@@ -48,7 +49,7 @@ function App() {
       clearSession();
     }
     setAuthenticatedUser(undefined);
-    setCurrentView('login');
+    setCurrentView('landing');
   };
 
   return (
@@ -63,7 +64,12 @@ function App() {
       <Navbar userName={authenticatedUser} onLogout={handleLogout} />
 
       <main id="main-content" className="flex-1">
-        {currentView === 'login' ? (
+        {currentView === 'landing' ? (
+          <LandingPage
+            onNavigateToLogin={() => setCurrentView('login')}
+            onNavigateToRegister={() => setCurrentView('register')}
+          />
+        ) : currentView === 'login' ? (
           <LoginPage
             onNavigateToRegister={() => setCurrentView('register')}
             onLoginSuccess={(user) => {
