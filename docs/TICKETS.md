@@ -179,8 +179,8 @@
 * **Rama:** `feature/frontend-spa-ui`
 * **Descripción:** Inicializar el proyecto SPA con Vite, Tailwind CSS utilitario, estructura organizada por `features/` (`auth/`, `postulacion/`, `pagos/`, `shared/`) y configuración de Axios con `baseURL` dinámico.
 * **Criterios de Aceptación:**
-  - [ ] Interfaz completamente responsiva (Mobile, Tablet y Desktop).
-  - [ ] Componentes base reutilizables: botones, inputs con validación, modales, alertas y spinners/loaders.
+  - [x] Interfaz completamente responsiva (Mobile, Tablet y Desktop).
+  - [x] Componentes base reutilizables: botones, inputs con validación, modales, alertas y spinners/loaders.
 
 ---
 
