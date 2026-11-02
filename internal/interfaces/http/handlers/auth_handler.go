@@ -121,6 +121,7 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 }
 
 // ValidarCedula valida el formato de documento con la estrategia Módulo 10.
+// TODO(backend: SRP-008): alinear ruta y respuesta con SDD 7.6.1 (ver TODO en router.go).
 func (h *AuthHandler) ValidarCedula(c *fiber.Ctx) error {
 	var req ValidarCedulaRequest
 	if err := c.BodyParser(&req); err != nil {
