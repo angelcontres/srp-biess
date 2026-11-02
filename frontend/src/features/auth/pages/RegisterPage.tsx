@@ -5,7 +5,7 @@ import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
 import LockoutNotice from '@/features/auth/components/LockoutNotice';
 import { useCountdown } from '@/features/auth/hooks/useCountdown';
-import { api, normalizeError } from '@/services/api/client';
+import { api, DEFAULT_LOCKOUT_SECONDS, normalizeError } from '@/services/api/client';
 
 export type ValidationType = 'FECHA_EXPEDICION' | 'CODIGO_DACTILAR';
 
@@ -26,6 +26,19 @@ interface ValidarIdentidadResponse {
   };
 }
 
+/** Converts `dd/mm/aaaa` to the `YYYY-MM-DD` expected by the API; null if the date is invalid. */
+export function toIsoDate(value: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+  const [, dd, mm, yyyy] = match;
+  const date = new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd)));
+  const isSameDate =
+    date.getUTCFullYear() === Number(yyyy) &&
+    date.getUTCMonth() === Number(mm) - 1 &&
+    date.getUTCDate() === Number(dd);
+  return isSameDate ? `${yyyy}-${mm}-${dd}` : null;
+}
+
 export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
   const [cedula, setCedula] = useState('');
   const [tipoValidacion, setTipoValidacion] = useState<ValidationType>('FECHA_EXPEDICION');
@@ -33,11 +46,15 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lockoutMessage, setLockoutMessage] = useState<string | undefined>(undefined);
+  const [fechaError, setFechaError] = useState<string | undefined>(undefined);
+  /** Token for step 2 of the registration (SDD 7.4.2); valid for 10 minutes. */
+  const [tokenValidacion, setTokenValidacion] = useState<string | null>(null);
   const [verifiedData, setVerifiedData] = useState<ValidarIdentidadResponse['datos'] | null>(null);
 
-  // Hook de temporizador reactivo de 10 minutos (600 segundos) para HTTP 423
+  // Temporizador del bloqueo HTTP 423: arranca con Retry-After (600 s si no llega)
   const countdown = useCountdown({
-    initialSeconds: 600,
+    initialSeconds: DEFAULT_LOCKOUT_SECONDS,
     onFinish: () => {
       setIsLocked(false);
       setErrorMessage(null);
@@ -48,29 +65,40 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
     event.preventDefault();
     if (isLocked) return;
 
+    let valor = valorValidacion.trim();
+    if (tipoValidacion === 'FECHA_EXPEDICION') {
+      const isoDate = toIsoDate(valor);
+      if (!isoDate) {
+        setFechaError('Ingrese una fecha válida con el formato dd/mm/aaaa.');
+        return;
+      }
+      valor = isoDate;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
+    setFechaError(undefined);
     setVerifiedData(null);
+    setTokenValidacion(null);
 
     try {
       // Intenta consumir el endpoint oficial de validación de identidad (SDD 7.4.1)
-      const { data } = await api.post<ValidarIdentidadResponse>(
+      // El backend envuelve la respuesta en { success, data }
+      const { data } = await api.post<{ data: ValidarIdentidadResponse }>(
         '/auth/registro/validar-identidad',
-        {
-          cedula,
-          tipoValidacion,
-          valor: valorValidacion.trim(),
-        }
+        { cedula, tipoValidacion, valor }
       );
 
-      setVerifiedData(data.datos ?? { nombres: 'CIUDADANO VERIFICADO' });
+      setTokenValidacion(data.data.tokenValidacion ?? null);
+      setVerifiedData(data.data.datos ?? {});
     } catch (error) {
       const normalized = normalizeError(error);
 
       // Si el servidor responde 423 (bloqueo por 3 intentos fallidos de validación)
       if (normalized.status === 423) {
         setIsLocked(true);
-        countdown.start(600);
+        setLockoutMessage(normalized.message);
+        countdown.start(normalized.retryAfterSeconds ?? DEFAULT_LOCKOUT_SECONDS);
       } else {
         // Mensaje genérico según RF-EF11-02 para no revelar cuál dato falló
         setErrorMessage(
@@ -103,6 +131,8 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
           <LockoutNotice
             formattedTime={countdown.formattedTime}
             isLocked={isLocked}
+            title="Registro bloqueado temporalmente"
+            message={lockoutMessage}
             className="mt-6"
           />
         ) : null}
@@ -135,6 +165,7 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
                   onChange={() => {
                     setTipoValidacion('FECHA_EXPEDICION');
                     setValorValidacion('');
+                    setFechaError(undefined);
                   }}
                   disabled={isLocked || isLoading}
                   className="h-4 w-4 rounded-full border-line-input text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-dark"
@@ -164,7 +195,12 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
             <TextField
               label="Fecha de expedición"
               value={valorValidacion}
-              onChange={(e) => setValorValidacion(e.target.value)}
+              onChange={(e) => {
+                setValorValidacion(e.target.value);
+                setFechaError(undefined);
+              }}
+              error={fechaError}
+              inputMode="numeric"
               placeholder="Ej. 15/06/2018"
               maxLength={10}
               required
@@ -202,13 +238,14 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
           </Alert>
         ) : null}
 
-        {verifiedData ? (
+        {verifiedData && tokenValidacion ? (
           <Alert variant="success" title="Identidad confirmada" className="mt-6">
             <p className="font-semibold text-neutral-900">
               {verifiedData.nombres} {verifiedData.apellidos ?? ''}
             </p>
             <p className="mt-1 text-sm text-neutral-700">
-              Nacionalidad: {verifiedData.nacionalidad ?? 'ECUADOR'}. Su identidad ha sido verificada
+              {verifiedData.nacionalidad ? `Nacionalidad: ${verifiedData.nacionalidad}. ` : null}
+              Su identidad ha sido verificada
               ante el Registro Civil. Ya puede continuar con el registro de su correo y contraseña.
             </p>
           </Alert>

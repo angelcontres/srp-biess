@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button';
 import TextField from '@/components/ui/TextField';
 import LockoutNotice from '@/features/auth/components/LockoutNotice';
 import { useCountdown } from '@/features/auth/hooks/useCountdown';
-import { api, normalizeError } from '@/services/api/client';
+import { api, DEFAULT_LOCKOUT_SECONDS, normalizeError } from '@/services/api/client';
 import { setAccessToken } from '@/store/authStore';
 
 export interface LoginResponse {
@@ -34,9 +34,9 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Hook de temporizador reactivo de 10 minutos (600 segundos) para HTTP 423
+  // Temporizador del bloqueo HTTP 423: arranca con Retry-After (600 s si no llega)
   const countdown = useCountdown({
-    initialSeconds: 600,
+    initialSeconds: DEFAULT_LOCKOUT_SECONDS,
     onFinish: () => {
       setIsLocked(false);
       setErrorMessage(null);
@@ -68,7 +68,7 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
       // Bloqueo temporal por 3 intentos fallidos (HTTP 423 Locked - EF-11 / SRP-012)
       if (normalized.status === 423) {
         setIsLocked(true);
-        countdown.start(600);
+        countdown.start(normalized.retryAfterSeconds ?? DEFAULT_LOCKOUT_SECONDS);
       } else if (normalized.status === 401) {
         // Feedback visual instantáneo para credenciales erróneas (RF-EF11-05)
         setErrorMessage('Sus credenciales de ingreso son incorrectas. Revise su cédula y contraseña.');

@@ -61,6 +61,16 @@ export interface NormalizedApiError {
   status?: number;
   fields?: Record<string, string>;
   traceId?: string;
+  /** Seconds from the `Retry-After` header (HTTP 423/429), when present. */
+  retryAfterSeconds?: number;
+}
+
+/** Lockout length used when a 423 arrives without `Retry-After` (EF-11: 10 minutes). */
+export const DEFAULT_LOCKOUT_SECONDS = 600;
+
+function parseRetryAfter(value: unknown): number | undefined {
+  const seconds = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
 }
 
 const DEFAULT_ERROR_MESSAGE = 'Ocurrió un error inesperado. Intente nuevamente.';
@@ -86,6 +96,7 @@ export function normalizeError(error: unknown): NormalizedApiError {
       status: error.response.status,
       fields: data?.fields,
       traceId: data?.traceId,
+      retryAfterSeconds: parseRetryAfter(error.response.headers?.['retry-after']),
     };
   }
 
