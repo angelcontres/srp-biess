@@ -26,6 +26,7 @@ type Postulacion struct {
 	DeclaracionJurada  bool              `json:"declaracion_jurada"`
 	ComprobantePagoURL string            `json:"comprobante_pago_url,omitempty"`
 	CertificadoPDFURL  string            `json:"certificado_pdf_url,omitempty"`
+	FechaEnvio         *time.Time        `json:"fecha_envio,omitempty"`
 	CreatedAt          time.Time         `json:"created_at"`
 	UpdatedAt          time.Time         `json:"updated_at"`
 }
@@ -36,4 +37,5 @@ type PostulacionRepository interface {
 	GetByPostulanteID(ctx context.Context, postulanteID string) (*Postulacion, error)
 	Save(ctx context.Context, p *Postulacion) error
 	UpdateEstado(ctx context.Context, id string, estado EstadoPostulacion) error
+	UpdateSubmit(ctx context.Context, id, codigoUnico string, fechaEnvio time.Time) error
 }

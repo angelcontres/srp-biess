@@ -13,7 +13,7 @@ import (
 	"srp-biess/internal/domain"
 )
 
-// PostgresPostulacionRepository implementa domain.PostulacionRepository con pgx y Querier (SRP-004).
+// PostgresPostulacionRepository implementa domain.PostulacionRepository con pgx y Querier (SRP-004, SRP-005).
 type PostgresPostulacionRepository struct {
 	q Querier
 }
@@ -26,23 +26,29 @@ func (r *PostgresPostulacionRepository) WithQuerier(q Querier) *PostgresPostulac
 	return &PostgresPostulacionRepository{q: q}
 }
 
+func (r *PostgresPostulacionRepository) getQuerier(ctx context.Context) Querier {
+	return ExtractQuerier(ctx, r.q)
+}
+
 func (r *PostgresPostulacionRepository) GetByID(ctx context.Context, id string) (*domain.Postulacion, error) {
 	query := `
-		SELECT id, COALESCE(codigo_unico, ''), postulante_id, COALESCE(cargo_id, 0), estado, created_at, updated_at
+		SELECT id, COALESCE(codigo_unico, ''), postulante_id, COALESCE(cargo_id, 0), estado, fecha_envio, created_at, updated_at
 		FROM postulacion
 		WHERE id = $1::uuid`
 
 	var p domain.Postulacion
 	var cargoID int
 	var estado string
+	var fechaEnvio *time.Time
 	var createdAt, updatedAt time.Time
 
-	err := r.q.QueryRow(ctx, query, id).Scan(
+	err := r.getQuerier(ctx).QueryRow(ctx, query, id).Scan(
 		&p.ID,
 		&p.CodigoPostulacion,
 		&p.PostulanteID,
 		&cargoID,
 		&estado,
+		&fechaEnvio,
 		&createdAt,
 		&updatedAt,
 	)
@@ -57,6 +63,7 @@ func (r *PostgresPostulacionRepository) GetByID(ctx context.Context, id string) 
 	if cargoID > 0 {
 		p.CargoID = strconv.Itoa(cargoID)
 	}
+	p.FechaEnvio = fechaEnvio
 	p.CreatedAt = createdAt
 	p.UpdatedAt = updatedAt
 
@@ -65,7 +72,7 @@ func (r *PostgresPostulacionRepository) GetByID(ctx context.Context, id string) 
 
 func (r *PostgresPostulacionRepository) GetByPostulanteID(ctx context.Context, postulanteID string) (*domain.Postulacion, error) {
 	query := `
-		SELECT id, COALESCE(codigo_unico, ''), postulante_id, COALESCE(cargo_id, 0), estado, created_at, updated_at
+		SELECT id, COALESCE(codigo_unico, ''), postulante_id, COALESCE(cargo_id, 0), estado, fecha_envio, created_at, updated_at
 		FROM postulacion
 		WHERE postulante_id = $1::uuid
 		ORDER BY created_at DESC
@@ -74,14 +81,16 @@ func (r *PostgresPostulacionRepository) GetByPostulanteID(ctx context.Context, p
 	var p domain.Postulacion
 	var cargoID int
 	var estado string
+	var fechaEnvio *time.Time
 	var createdAt, updatedAt time.Time
 
-	err := r.q.QueryRow(ctx, query, postulanteID).Scan(
+	err := r.getQuerier(ctx).QueryRow(ctx, query, postulanteID).Scan(
 		&p.ID,
 		&p.CodigoPostulacion,
 		&p.PostulanteID,
 		&cargoID,
 		&estado,
+		&fechaEnvio,
 		&createdAt,
 		&updatedAt,
 	)
@@ -96,6 +105,7 @@ func (r *PostgresPostulacionRepository) GetByPostulanteID(ctx context.Context, p
 	if cargoID > 0 {
 		p.CargoID = strconv.Itoa(cargoID)
 	}
+	p.FechaEnvio = fechaEnvio
 	p.CreatedAt = createdAt
 	p.UpdatedAt = updatedAt
 
@@ -127,7 +137,7 @@ func (r *PostgresPostulacionRepository) Save(ctx context.Context, p *domain.Post
 		estado = string(domain.EstadoBorrador)
 	}
 
-	return r.q.QueryRow(ctx, query,
+	return r.getQuerier(ctx).QueryRow(ctx, query,
 		codigo,
 		p.PostulanteID,
 		cargoID,
@@ -141,9 +151,29 @@ func (r *PostgresPostulacionRepository) UpdateEstado(ctx context.Context, id str
 		SET estado = $2::estado_postulacion, updated_at = now()
 		WHERE id = $1::uuid`
 
-	cmdTag, err := r.q.Exec(ctx, query, id, string(estado))
+	cmdTag, err := r.getQuerier(ctx).Exec(ctx, query, id, string(estado))
 	if err != nil {
 		return fmt.Errorf("error actualizando estado de postulación: %w", err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
+// UpdateSubmit actualiza el estado a ENVIADA, asigna el código único y la fecha de envío en una sola sentencia atómica (SRP-005, SDD 10.9).
+func (r *PostgresPostulacionRepository) UpdateSubmit(ctx context.Context, id, codigoUnico string, fechaEnvio time.Time) error {
+	query := `
+		UPDATE postulacion
+		SET estado = 'ENVIADA',
+		    codigo_unico = $2,
+		    fecha_envio = $3,
+		    updated_at = now()
+		WHERE id = $1::uuid`
+
+	cmdTag, err := r.getQuerier(ctx).Exec(ctx, query, id, codigoUnico, fechaEnvio)
+	if err != nil {
+		return fmt.Errorf("error actualizando envio de postulación: %w", err)
 	}
 	if cmdTag.RowsAffected() == 0 {
 		return domain.ErrNotFound

@@ -51,19 +51,24 @@ func main() {
 	rdb := cache.NewRedisClient(ctx)
 	defer rdb.Close()
 
-	// Repositorios de Persistencia Relacional PostgreSQL (SRP-004)
+	// Repositorios de Persistencia Relacional PostgreSQL (SRP-004 y SRP-005)
 	var postulanteRepo domain.PostulanteRepository
 	var catalogoRepo domain.CatalogoRepository
 	var postulacionRepo domain.PostulacionRepository
 	var documentoRepo domain.DocumentoRepository
+	var notificacionRepo domain.NotificacionRepository
+	var txManager domain.TxManager
+	var postulacionService *application.PostulacionService
 
 	if pool != nil {
 		postulanteRepo = database.NewPostgresPostulanteRepository(pool)
 		catalogoRepo = database.NewPostgresCatalogoRepository(pool)
 		postulacionRepo = database.NewPostgresPostulacionRepository(pool)
 		documentoRepo = database.NewPostgresDocumentoRepository(pool)
-		_ = postulacionRepo
-		_ = documentoRepo
+		notificacionRepo = database.NewPostgresNotificacionRepository(pool)
+		txManager = database.NewPgxTxManager(pool)
+		postulacionService = application.NewPostulacionService(txManager, postulacionRepo, documentoRepo, notificacionRepo)
+		_ = postulacionService
 	}
 
 	// Almacén de sesiones y refresh tokens en Redis (ADR-006)

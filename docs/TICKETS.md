@@ -84,12 +84,12 @@
 ### Ticket `SRP-005`: Gestor Transaccional Atómico (`TxManager`) para Envío de Postulación
 * **Tipo:** Feature / Crítico
 * **Asignado:** Angel Alejandro Villon Panimboza
-* **Rama:** `feature/postgres-transactions-ddl`
+* **Rama:** `feature/atomic-tx-manager`
 * **Descripción:** Diseñar e implementar el componente `TxManager` con soporte de `BEGIN`, `COMMIT` y `ROLLBACK` automático para operaciones multi-tabla (ADR-004).
 * **Criterios de Aceptación:**
-  - [ ] El guardado y envío de postulación actualiza el estado, genera código único, crea el PDF y encola la notificación en una sola transacción atómica.
-  - [ ] Si falla la inserción del documento o del correo, se ejecuta `ROLLBACK` total y la base queda intacta.
-  - [ ] Prueba de integración verificando el rollback forzado.
+  - [x] El guardado y envío de postulación actualiza el estado, genera código único, crea el PDF y encola la notificación en una sola transacción atómica.
+  - [x] Si falla la inserción del documento o del correo, se ejecuta `ROLLBACK` total y la base queda intacta.
+  - [x] Prueba de integración verificando el rollback forzado.
 
 ---
 
