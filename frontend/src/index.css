@@ -3,7 +3,19 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-padding-top: 6rem; /* altura de la barra de sección sticky */
+  }
+
   body {
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    @apply bg-background text-base leading-normal text-neutral-900 font-sans antialiased;
+  }
+
+  a {
+    @apply text-primary underline underline-offset-4 hover:text-primary-dark;
+  }
+
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-primary-dark;
   }
 }

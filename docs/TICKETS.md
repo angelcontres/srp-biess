@@ -193,8 +193,8 @@
   * Formulario de validación de identidad con cédula y selector de "Código Dactilar" o "Fecha de Expedición".
   * Componente de **Cuenta Regresiva de 10 Minutos** cuando el servidor responda HTTP 423 de bloqueo temporal.
 * **Criterios de Aceptación:**
-  - [ ] Feedback visual instantáneo ante credenciales incorrectas.
-  - [ ] Si se bloquea la cuenta, los inputs se deshabilitan y un temporizador en vivo muestra el tiempo restante en segundos.
+  - [x] Feedback visual instantáneo ante credenciales incorrectas.
+  - [x] Si se bloquea la cuenta, los inputs se deshabilitan y un temporizador en vivo muestra el tiempo restante en segundos.
 
 ---
 
