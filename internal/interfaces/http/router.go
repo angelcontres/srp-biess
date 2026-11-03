@@ -16,6 +16,7 @@ type RouterConfig struct {
 	PostulacionHandler *handlers.PostulacionHandler
 	CatalogoHandler    *handlers.CatalogoHandler
 	PaymentHandler     *handlers.PaymentHandler
+	CatalogoHandler    *handlers.CatalogoHandler
 	AuthService        *application.AuthService
 }
 
@@ -64,6 +65,13 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 	if cfg.PaymentHandler != nil && cfg.AuthService != nil {
 		payments := v1.Group("/postulaciones/:id", middleware.JWTProtected(cfg.AuthService))
 		payments.Post("/pagos", cfg.PaymentHandler.Pay)
+	}
+
+	if cfg.CatalogoHandler != nil {
+		catalogos := v1.Group("/catalogos")
+		catalogos.Get("/paises", cfg.CatalogoHandler.Paises)
+		catalogos.Get("/paises/:paisId/provincias", cfg.CatalogoHandler.Provincias)
+		catalogos.Get("/provincias/:provinciaId/cantones", cfg.CatalogoHandler.Cantones)
 	}
 
 	// -----------------------------------------------------------------

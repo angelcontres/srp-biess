@@ -51,6 +51,8 @@ func main() {
 
 	rdb := cache.NewRedisClient(ctx)
 	defer rdb.Close()
+	catalogoCacheClient := cache.NewRedisCatalogClient(ctx)
+	defer catalogoCacheClient.Close()
 
 	// Repositorios de Persistencia Relacional PostgreSQL (SRP-004 y SRP-005)
 	var postulanteRepo domain.PostulanteRepository
@@ -80,6 +82,7 @@ func main() {
 	// Almacén de sesiones, bloqueo y refresh tokens en Redis DB 1 (ADR-005, ADR-006)
 	sessionStore := cache.NewRedisSessionStore(rdb)
 	authAttemptStore := cache.NewRedisAuthAttemptStore(rdb)
+	catalogoCache := cache.NewRedisCatalogoCache(catalogoCacheClient)
 
 	// =========================================================================
 	// FASE 3: Adaptadores de Infraestructura Externa / Mocks (ADR-010)
@@ -103,7 +106,7 @@ func main() {
 	// Sin PostgreSQL el handler recibe nil y responde 503 (no se invoca un repositorio nulo).
 	var catalogoService *application.CatalogoService
 	if catalogoRepo != nil {
-		catalogoService = application.NewCatalogoService(catalogoRepo)
+		catalogoService = application.NewCatalogoService(catalogoRepo, catalogoCache)
 	}
 	var paymentRepository domain.PaymentRepository = payments.NewMemoryPaymentRepository()
 	if pool != nil {

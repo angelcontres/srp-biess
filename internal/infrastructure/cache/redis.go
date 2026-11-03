@@ -12,6 +12,14 @@ import (
 
 // NewRedisClient inicializa el cliente de Redis con fallback tolerante a fallos.
 func NewRedisClient(ctx context.Context) *redis.Client {
+	return newRedisClient(ctx, 1)
+}
+
+func NewRedisCatalogClient(ctx context.Context) *redis.Client {
+	return newRedisClient(ctx, 0)
+}
+
+func newRedisClient(ctx context.Context, db int) *redis.Client {
 	host := os.Getenv("REDIS_HOST")
 	if host == "" {
 		host = "localhost"
@@ -25,7 +33,7 @@ func NewRedisClient(ctx context.Context) *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:         fmt.Sprintf("%s:%s", host, port),
 		Password:     password,
-		DB:           1,
+		DB:           db,
 		DialTimeout:  2 * time.Second,
 		ReadTimeout:  500 * time.Millisecond,
 		WriteTimeout: 500 * time.Millisecond,
