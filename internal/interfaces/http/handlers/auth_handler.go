@@ -129,24 +129,19 @@ func (h *AuthHandler) ValidarCedula(c *fiber.Ctx) error {
 	}
 
 	if err := h.authService.ValidarIdentidad(req.Cedula); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"codigo":  "VAL_CEDULA_INVALIDA",
-			"mensaje": "El número de cédula ingresado no cumple con el algoritmo Módulo 10 ecuatoriano",
-			"detalles": []fiber.Map{{
-				"campo": "cedula",
-				"error": "Cédula inválida",
-			}},
-		})
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.Failure(
+			"VAL_CEDULA_INVALIDA: El número de cédula ingresado no cumple con el algoritmo Módulo 10 ecuatoriano",
+		))
 	}
 
 	codigo, provincia, _ := domain.ProvinciaCedula(req.Cedula)
-	return c.JSON(fiber.Map{
+	return c.JSON(dto.Success(fiber.Map{
 		"valida":          true,
 		"provincia":       provincia,
 		"codigoProvincia": codigo,
 		"tipo":            "PERSONA_NATURAL",
 		"algoritmo":       "MODULO_10",
-	})
+	}))
 }
 
 // Me retorna la identidad del postulante autenticado mediante el contexto inyectado (SRP-003).

@@ -34,7 +34,10 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 
 		// Endpoints públicos
 		// Compatibilidad con el endpoint anterior; el contrato canónico está fuera de /auth.
-		auth.Post("/validate-cedula", cfg.AuthHandler.ValidarCedula)
+		auth.Post("/validate-cedula", func(c *fiber.Ctx) error {
+			c.Set("Deprecation", "true")
+			return c.Next()
+		}, cfg.AuthHandler.ValidarCedula)
 		auth.Post("/login", cfg.AuthHandler.Login)
 		auth.Post("/refresh", cfg.AuthHandler.Refresh)
 		// Se registra antes del grupo protegido para que no la alcance el middleware JWT (ver TODO SRP-018).

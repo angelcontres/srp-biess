@@ -211,6 +211,9 @@ func TestAuthHandler_Lifecycle(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("status = %d; want 200", resp.StatusCode)
 		}
+		if got := resp.Header.Get("Deprecation"); got != "true" {
+			t.Errorf("Deprecation = %q; want true", got)
+		}
 	})
 
 	t.Run("9. Contrato SDD de validación algorítmica", func(t *testing.T) {
@@ -229,9 +232,13 @@ func TestAuthHandler_Lifecycle(t *testing.T) {
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			t.Fatalf("respuesta inválida: %v", err)
 		}
-		if result["valida"] != true || result["provincia"] != "PICHINCHA" ||
-			result["codigoProvincia"] != "17" || result["tipo"] != "PERSONA_NATURAL" ||
-			result["algoritmo"] != "MODULO_10" {
+		data, ok := result["data"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("data ausente o inválida: %v", result)
+		}
+		if result["success"] != true || data["valida"] != true ||
+			data["provincia"] != "PICHINCHA" || data["codigoProvincia"] != "17" ||
+			data["tipo"] != "PERSONA_NATURAL" || data["algoritmo"] != "MODULO_10" {
 			t.Fatalf("contrato inesperado: %v", result)
 		}
 	})
@@ -252,8 +259,8 @@ func TestAuthHandler_Lifecycle(t *testing.T) {
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			t.Fatalf("respuesta inválida: %v", err)
 		}
-		if result["codigo"] != "VAL_CEDULA_INVALIDA" {
-			t.Fatalf("código inesperado: %v", result)
+		if result["success"] != false || !strings.Contains(result["error"].(string), "VAL_CEDULA_INVALIDA") {
+			t.Fatalf("error inesperado: %v", result)
 		}
 	})
 }
