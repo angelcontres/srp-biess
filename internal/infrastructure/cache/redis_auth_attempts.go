@@ -26,6 +26,7 @@ if attempts == 1 then
 end
 if attempts >= tonumber(ARGV[2]) then
   redis.call("SET", KEYS[2], "1", "EX", ARGV[1])
+  redis.call("DEL", KEYS[1])
   return {1, ARGV[1]}
 end
 return {0, 0}

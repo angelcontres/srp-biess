@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"time"
@@ -142,6 +143,7 @@ func (noopAuthAttemptStore) Reset(context.Context, domain.AuthFlow, string) erro
 func (s *AuthService) checkAuthBlocked(ctx context.Context, flow domain.AuthFlow, cedula string) error {
 	retryAfter, err := s.attemptStore.CheckBlocked(ctx, flow, cedula)
 	if err != nil {
+		log.Printf("[ALERTA SEGURIDAD] Redis inalcanzable para verificar bloqueo de autenticación (%s, cédula %s): %v", flow, cedula, err)
 		return fmt.Errorf("%w: %v", domain.ErrAuthProtectionDown, err)
 	}
 	if retryAfter > 0 {
@@ -153,6 +155,7 @@ func (s *AuthService) checkAuthBlocked(ctx context.Context, flow domain.AuthFlow
 func (s *AuthService) recordAuthFailure(ctx context.Context, flow domain.AuthFlow, cedula string) error {
 	blocked, retryAfter, err := s.attemptStore.RecordFailure(ctx, flow, cedula)
 	if err != nil {
+		log.Printf("[ALERTA SEGURIDAD] Redis inalcanzable para registrar intento de autenticación (%s, cédula %s): %v", flow, cedula, err)
 		return fmt.Errorf("%w: %v", domain.ErrAuthProtectionDown, err)
 	}
 	if blocked {
