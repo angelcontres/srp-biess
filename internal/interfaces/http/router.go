@@ -16,7 +16,6 @@ type RouterConfig struct {
 	PostulacionHandler *handlers.PostulacionHandler
 	CatalogoHandler    *handlers.CatalogoHandler
 	PaymentHandler     *handlers.PaymentHandler
-	CatalogoHandler    *handlers.CatalogoHandler
 	AuthService        *application.AuthService
 }
 
