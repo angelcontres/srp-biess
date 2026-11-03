@@ -295,6 +295,8 @@ func (s *PostulacionService) EnviarPostulacion(ctx context.Context, req EnviarPo
 				"cargo_id":     p.CargoID,
 				// El remitente adjunta el formulario guardado (SRS 2: "Enviar correo con PDF").
 				"documento_id": doc.ID,
+				// Saludo del correo: nombre registrado del postulante.
+				"nombres": strings.TrimSpace(postulante.Nombres + " " + postulante.Apellidos),
 			},
 		}
 		if err := s.notificacionRepo.Enqueue(txCtx, notif); err != nil {

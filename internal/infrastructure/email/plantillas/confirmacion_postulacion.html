@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confirmación de postulación</title>
+</head>
+<body style="margin:0;padding:0;background:#F8FAFC;font-family:Arial,Helvetica,sans-serif;color:#0F172A;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8FAFC;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#FFFFFF;border:1px solid #7F8DA1;border-radius:8px;">
+<tr><td style="background:#0B5CAD;padding:16px 24px;border-radius:8px 8px 0 0;">
+<p style="margin:0;font-size:13px;color:#CCDEEF;">Banco del IESS</p>
+<p style="margin:4px 0 0;font-size:18px;font-weight:bold;color:#FFFFFF;">Concurso Público de Méritos y Oposición</p>
+</td></tr>
+<tr><td style="background:#F2B705;height:4px;line-height:4px;font-size:4px;">&nbsp;</td></tr>
+<tr><td style="padding:24px;font-size:16px;line-height:1.5;">
+<p style="margin:0 0 16px;">Estimado/a {{.nombres}}:</p>
+<p style="margin:0 0 16px;font-weight:bold;">Su postulación fue enviada correctamente.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;font-size:16px;">
+<tr><td style="padding:4px 16px 4px 0;color:#475569;">Código de su postulación</td><td style="padding:4px 0;font-weight:bold;">{{.codigo_unico}}</td></tr>
+<tr><td style="padding:4px 16px 4px 0;color:#475569;">Fecha y hora de envío</td><td style="padding:4px 0;">{{.fecha_envio_texto}}</td></tr>
+{{if .cargo}}<tr><td style="padding:4px 16px 4px 0;color:#475569;">Cargo al que postula</td><td style="padding:4px 0;">{{.cargo}}</td></tr>{{end}}
+</table>
+<p style="margin:0 0 16px;">Adjuntamos su formulario de postulación en PDF. Imprímalo, fírmelo y entréguelo junto con los requisitos solicitados, en el lugar, la fecha y el horario que establezca el Instituto Ecuatoriano de Seguridad Social.</p>
+<p style="margin:0;font-size:14px;color:#475569;">Este es un mensaje automático. No responda a este correo.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>
