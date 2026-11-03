@@ -90,7 +90,7 @@ services:
       - STORAGE_LOCAL_PATH=/app/uploads
       - STORAGE_PATH=/app/storage
     ports:
-      - "${API_PORT:-8080}:8080"
+      - "${API_PORT:-8081}:8080"
     volumes:
       - uploads_data:/app/uploads
       - storage_data:/app/storage

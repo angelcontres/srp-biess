@@ -40,7 +40,7 @@ chmod +x start.sh stop.sh
 
 ### Opciones del Menú en Consola:
 * `[1]` **Iniciar en Modo Desarrollo:** Levanta PostgreSQL 16, Redis 7 y Mailpit Web UI.
-* `[2]` **Iniciar en Modo Producción:** Modo productivo con remoción de huérfanos.
+* `[2]` **Iniciar en Modo Producción:** Modo productivo completo con Docker Compose (`docker-compose.prod.yml`).
 * `[3]` **Detener Todos los Servicios:** `docker compose down`.
 * `[4]` **Reiniciar Servicios:** Reinicio ágil de los contenedores.
 * `[5]` **Ver Estado y Salud:** Muestra `docker compose ps` con el healthcheck.
@@ -88,7 +88,24 @@ Los scripts `start.bat` y `start.sh` crean automáticamente el archivo `.env` lo
 
 ---
 
-## 6. Estructura de Documentación del Proyecto
+## 6. Pipeline de CI/CD (GitHub Actions & Runner Self-Hosted)
+
+El repositorio cuenta con integración continua y despliegue automatizado en [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) ejecutándose en un runner propio Linux (`self-hosted`):
+
+### Fases del Pipeline:
+1. **CI (Integración Continua):** Se activa automáticamente ante cualquier `push` o `pull_request` hacia `main` o `develop`.
+   - **Arquitectura Limpia (ADR-003):** Verifica que `internal/domain` no importe dependencias prohibidas (SQL, Fiber, Redis ni infraestructura).
+   - **Backend API (Go):** Análisis estático con `go vet`, pruebas unitarias con `-race` y compilación de `cmd/api`.
+   - **Frontend SPA (React):** Verificación de tipos TypeScript (`tsc --noEmit`), suite de pruebas unitarias (`vitest run`) y empaquetado optimizado de producción (`vite build`).
+2. **CD (Despliegue Continuo):** Se ejecuta automáticamente al hacer `push` a la rama `main` o de forma manual mediante el disparador `workflow_dispatch` en la pestaña Actions de GitHub.
+   - Orquesta el stack contenerizado completo mediante [`docker-compose.prod.yml`](./docker-compose.prod.yml).
+   - Genera imágenes Docker multi-stage optimizadas para la API de Go (`Dockerfile`) y para la SPA con Nginx (`frontend/Dockerfile`).
+   - Mantiene aislamiento de red seguro para PostgreSQL y Redis dentro de la red interna de Docker (`srp-network`), evitando colisiones en el host.
+   - Valida la disponibilidad operativa de los servicios mediante health checks HTTP en `/health` y `/healthz`.
+
+---
+
+## 7. Estructura de Documentación del Proyecto
 
 Toda la documentación técnica exigida por estándares de ingeniería de software se encuentra organizada en el directorio `docs/`:
 
