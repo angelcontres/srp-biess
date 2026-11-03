@@ -139,3 +139,96 @@ func (blockedAttemptStore) RecordFailure(context.Context, domain.AuthFlow, strin
 func (blockedAttemptStore) Reset(context.Context, domain.AuthFlow, string) error {
 	return nil
 }
+
+func TestAuthHandler_RegistroPaso2(t *testing.T) {
+	app, _, _ := setupRegistroApp()
+
+	// 1. Validar identidad con 1710034065 para obtener token
+	respVal, jsonVal := postValidarIdentidad(t, app, "1710034065", "CODIGO_DACTILAR", "E3331I2222")
+	if respVal.StatusCode != http.StatusOK {
+		t.Fatalf("Validar identidad falló: %v", jsonVal)
+	}
+	token := jsonVal["data"].(map[string]interface{})["tokenValidacion"].(string)
+
+	t.Run("201 Created al registrar postulante", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{
+			"tokenValidacion": token,
+			"correo":          "nuevo.postulante@biess.gob.ec",
+			"password":        "MiClaveSegura#2026",
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/registro", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if resp.StatusCode != http.StatusCreated {
+			var errRes map[string]interface{}
+			_ = json.NewDecoder(resp.Body).Decode(&errRes)
+			t.Fatalf("status = %d; want 201 (%v)", resp.StatusCode, errRes)
+		}
+	})
+
+	t.Run("409 Conflict por cédula ya registrada", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{
+			"tokenValidacion": token,
+			"correo":          "otro.correo@biess.gob.ec",
+			"password":        "MiClaveSegura#2026",
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/registro", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req)
+		if resp.StatusCode != http.StatusConflict {
+			t.Fatalf("status = %d; want 409", resp.StatusCode)
+		}
+	})
+
+	t.Run("422 por token inválido", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{
+			"tokenValidacion": "token-invalido",
+			"correo":          "correo@biess.gob.ec",
+			"password":        "MiClaveSegura#2026",
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/registro", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req)
+		if resp.StatusCode != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d; want 422", resp.StatusCode)
+		}
+	})
+}
+
+func TestAuthHandler_RecuperarYRestablecerPassword(t *testing.T) {
+	app, svc, _ := setupRegistroApp()
+	_ = svc.RegisterSeedUser("usr-test", "0926687856", "postulante@biess.gob.ec", "ClaveInicial2026*")
+
+	t.Run("202 Accepted en recuperar contraseña y 200 en restablecer", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"identificador": "0926687856"})
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/recuperar-password", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, _ := app.Test(req)
+		if resp.StatusCode != http.StatusAccepted {
+			t.Fatalf("status = %d; want 202", resp.StatusCode)
+		}
+
+		var jsonRec map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&jsonRec)
+		data := jsonRec["data"].(map[string]interface{})
+		tokenDev := data["tokenDev"].(string)
+		if tokenDev == "" {
+			t.Fatalf("se esperaba tokenDev en entorno de prueba")
+		}
+
+		// Restablecer contraseña
+		bodyReset, _ := json.Marshal(map[string]string{
+			"token":    tokenDev,
+			"password": "NuevaClaveSuperSegura2026*",
+		})
+		reqReset := httptest.NewRequest(http.MethodPost, "/api/v1/auth/restablecer-password", bytes.NewReader(bodyReset))
+		reqReset.Header.Set("Content-Type", "application/json")
+		respReset, _ := app.Test(reqReset)
+		if respReset.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d; want 200", respReset.StatusCode)
+		}
+	})
+}

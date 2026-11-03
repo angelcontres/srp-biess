@@ -6,6 +6,8 @@ export const RUTAS = {
   inicio: '/',
   ingresar: '/ingresar',
   registro: '/registro',
+  recuperarPassword: '/recuperar-password',
+  restablecerPassword: '/restablecer-password',
   formulario: '/formulario',
   miPostulacion: '/mi-postulacion',
 } as const;

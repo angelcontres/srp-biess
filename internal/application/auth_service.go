@@ -68,11 +68,55 @@ func (m *memorySessionStore) DeleteRefreshToken(ctx context.Context, token strin
 	return nil
 }
 
+type memoryResetItem struct {
+	postulanteID string
+	expiresAt    time.Time
+}
+
+type memoryResetStore struct {
+	mu     sync.RWMutex
+	tokens map[string]memoryResetItem
+}
+
+func newMemoryResetStore() *memoryResetStore {
+	return &memoryResetStore{tokens: make(map[string]memoryResetItem)}
+}
+
+func (m *memoryResetStore) SaveResetToken(ctx context.Context, token, postulanteID string, ttl time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.tokens[token] = memoryResetItem{postulanteID: postulanteID, expiresAt: time.Now().Add(ttl)}
+	return nil
+}
+
+func (m *memoryResetStore) GetResetToken(ctx context.Context, token string) (string, error) {
+	m.mu.RLock()
+	item, ok := m.tokens[token]
+	m.mu.RUnlock()
+	if !ok || time.Now().After(item.expiresAt) {
+		if ok {
+			m.mu.Lock()
+			delete(m.tokens, token)
+			m.mu.Unlock()
+		}
+		return "", domain.ErrTokenInvalido
+	}
+	return item.postulanteID, nil
+}
+
+func (m *memoryResetStore) DeleteResetToken(ctx context.Context, token string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.tokens, token)
+	return nil
+}
+
 type AuthService struct {
 	repo         domain.PostulanteRepository
 	validator    domain.DocumentValidationStrategy
 	sessionStore domain.SessionStore
 	attemptStore domain.AuthAttemptStore
+	resetStore   domain.PasswordResetStore
 	identity     domain.IdentityProvider // Registro Civil (SDD 7.4.1)
 
 	// Fallback para usuarios semilla en pruebas si repo no está inicializado
@@ -100,10 +144,18 @@ func NewAuthService(repo domain.PostulanteRepository, validator domain.DocumentV
 		store = newMemorySessionStore()
 	}
 
+	var rst domain.PasswordResetStore
+	if r, ok := store.(domain.PasswordResetStore); ok {
+		rst = r
+	} else {
+		rst = newMemoryResetStore()
+	}
+
 	svc := &AuthService{
 		repo:         repo,
 		validator:    validator,
 		sessionStore: store,
+		resetStore:   rst,
 		attemptStore: noopAuthAttemptStore{},
 		seedUsers:    make(map[string]seedUser),
 	}
@@ -122,6 +174,13 @@ func NewAuthService(repo domain.PostulanteRepository, validator domain.DocumentV
 func (s *AuthService) WithAuthAttemptStore(store domain.AuthAttemptStore) *AuthService {
 	if store != nil {
 		s.attemptStore = store
+	}
+	return s
+}
+
+func (s *AuthService) WithPasswordResetStore(store domain.PasswordResetStore) *AuthService {
+	if store != nil {
+		s.resetStore = store
 	}
 	return s
 }

@@ -179,3 +179,109 @@ func TestValidarTokenValidacion_RechazaOtrosTokens(t *testing.T) {
 		}
 	}
 }
+
+
+func TestRegistrar_Paso2(t *testing.T) {
+	rc := &registroCivilFake{res: &domain.IdentityResult{Match: true, Cedula: cedulaRegistro, Nombres: "ANA", Apellidos: "PEREZ"}}
+	svc := servicioRegistro(rc, &intentosFake{})
+	ctx := context.Background()
+
+	res, err := svc.ValidarIdentidadRegistro(ctx, cedulaRegistro, domain.ValidacionFechaExpedicion, "2018-06-15")
+	if err != nil {
+		t.Fatalf("ValidarIdentidadRegistro: %v", err)
+	}
+
+	t.Run("Éxito al registrar cuenta", func(t *testing.T) {
+		p, err := svc.Registrar(ctx, res.TokenValidacion, "ana.perez@ejemplo.com", "ClaveSegura2026*")
+		if err != nil {
+			t.Fatalf("Registrar: %v", err)
+		}
+		if p.Cedula != cedulaRegistro || p.Email != "ana.perez@ejemplo.com" || p.Nombres != "ANA" {
+			t.Errorf("datos de postulante inesperados: %+v", p)
+		}
+		ok, err := svc.VerifyPassword("ClaveSegura2026*", p.PasswordHash)
+		if err != nil || !ok {
+			t.Errorf("la contraseña no fue hasheada correctamente: %v", err)
+		}
+	})
+
+	t.Run("Rechaza token inválido", func(t *testing.T) {
+		_, err := svc.Registrar(ctx, "token-falso", "ana2@ejemplo.com", "ClaveSegura2026*")
+		if !errors.Is(err, domain.ErrTokenInvalido) {
+			t.Errorf("esperado ErrTokenInvalido, obtenido: %v", err)
+		}
+	})
+
+	t.Run("Rechaza correo inválido", func(t *testing.T) {
+		_, err := svc.Registrar(ctx, res.TokenValidacion, "correo-invalido", "ClaveSegura2026*")
+		if !errors.Is(err, domain.ErrCorreoInvalido) {
+			t.Errorf("esperado ErrCorreoInvalido, obtenido: %v", err)
+		}
+	})
+
+	t.Run("Rechaza contraseña débil o igual a cédula", func(t *testing.T) {
+		// Menor a 10
+		_, err := svc.Registrar(ctx, res.TokenValidacion, "ana3@ejemplo.com", "Corta1*")
+		if !errors.Is(err, domain.ErrPasswordInvalida) {
+			t.Errorf("esperado ErrPasswordInvalida para contraseña corta, obtenido: %v", err)
+		}
+
+		// Igual a cédula
+		_, err = svc.Registrar(ctx, res.TokenValidacion, "ana3@ejemplo.com", cedulaRegistro)
+		if err == nil {
+			t.Errorf("debía rechazar contraseña igual a la cédula")
+		}
+	})
+
+	t.Run("Rechaza cédula duplicada", func(t *testing.T) {
+		// La cédula ya fue registrada en el primer subtest
+		_, err := svc.Registrar(ctx, res.TokenValidacion, "otro.correo@ejemplo.com", "ClaveSegura2026*")
+		if !errors.Is(err, domain.ErrCedulaDuplicada) {
+			t.Errorf("esperado ErrCedulaDuplicada, obtenido: %v", err)
+		}
+	})
+}
+
+func TestRecuperacionYRestablecimientoPassword(t *testing.T) {
+	svc := application.NewAuthService(nil, nil)
+	ctx := context.Background()
+	_ = svc.RegisterSeedUser("usr-1", "0926687856", "postulante@biess.gob.ec", "ClaveInicial2026*")
+
+	t.Run("Solicitar recuperación genera token para usuario existente", func(t *testing.T) {
+		token, err := svc.SolicitarRecuperacionPassword(ctx, "0926687856")
+		if err != nil {
+			t.Fatalf("SolicitarRecuperacionPassword: %v", err)
+		}
+		if token == "" {
+			t.Fatalf("se esperaba token generado")
+		}
+
+		// Restablecer contraseña con éxito
+		err = svc.RestablecerPassword(ctx, token, "NuevaClave2026#")
+		if err != nil {
+			t.Fatalf("RestablecerPassword: %v", err)
+		}
+
+		// Inicio de sesión con la nueva clave debe funcionar
+		res, err := svc.Login(ctx, "0926687856", "NuevaClave2026#")
+		if err != nil || res == nil {
+			t.Fatalf("Login con nueva clave falló: %v", err)
+		}
+
+		// Token usado debe ser rechazado
+		err = svc.RestablecerPassword(ctx, token, "OtraClave2026#")
+		if !errors.Is(err, domain.ErrTokenInvalido) {
+			t.Errorf("token reutilizado debía fallar con ErrTokenInvalido: %v", err)
+		}
+	})
+
+	t.Run("Solicitud para usuario no existente no retorna error ni revela datos", func(t *testing.T) {
+		token, err := svc.SolicitarRecuperacionPassword(ctx, "9999999999")
+		if err != nil {
+			t.Fatalf("no debía fallar: %v", err)
+		}
+		if token != "" {
+			t.Errorf("no debía generar token para usuario inexistente")
+		}
+	})
+}

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -218,6 +219,121 @@ func (h *AuthHandler) ValidarIdentidadRegistro(c *fiber.Ctx) error {
 			"nacionalidad":    d.Nacionalidad,
 		},
 	}, "Identidad validada con el Registro Civil"))
+}
+
+type RegistroRequest struct {
+	TokenValidacion string `json:"tokenValidacion"`
+	Correo          string `json:"correo"`
+	Password        string `json:"password"`
+}
+
+// Registro implementa POST /auth/registro (SDD 7.4.2).
+func (h *AuthHandler) Registro(c *fiber.Ctx) error {
+	var req RegistroRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("Cuerpo de petición inválido"))
+	}
+
+	req.TokenValidacion = strings.TrimSpace(req.TokenValidacion)
+	req.Correo = strings.TrimSpace(req.Correo)
+	if req.TokenValidacion == "" || req.Correo == "" || req.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("El token de validación, correo y contraseña son obligatorios"))
+	}
+
+	postulante, err := h.authService.Registrar(c.Context(), req.TokenValidacion, req.Correo, req.Password)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrTokenInvalido):
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.Failure(err.Error()))
+		case errors.Is(err, domain.ErrCorreoInvalido), errors.Is(err, domain.ErrPasswordInvalida):
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.Failure(err.Error()))
+		case errors.Is(err, domain.ErrCedulaDuplicada), errors.Is(err, domain.ErrCorreoDuplicado):
+			return c.Status(fiber.StatusConflict).JSON(dto.Failure(err.Error()))
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(dto.Failure("Error interno durante el registro de cuenta"))
+		}
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(dto.Success(fiber.Map{
+		"id":     postulante.ID,
+		"cedula": postulante.Cedula,
+		"correo": postulante.Email,
+		"estado": "ACTIVO",
+	}, "Cuenta creada exitosamente"))
+}
+
+type RecuperarPasswordRequest struct {
+	Identificador string `json:"identificador"`
+	Cedula        string `json:"cedula"`
+	Correo        string `json:"correo"`
+}
+
+// RecuperarPassword implementa POST /auth/recuperar-password (SDD 7.4, SDD 10.5).
+func (h *AuthHandler) RecuperarPassword(c *fiber.Ctx) error {
+	var req RecuperarPasswordRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("Cuerpo de petición inválido"))
+	}
+
+	id := strings.TrimSpace(req.Identificador)
+	if id == "" {
+		id = strings.TrimSpace(req.Cedula)
+	}
+	if id == "" {
+		id = strings.TrimSpace(req.Correo)
+	}
+
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("Debe ingresar su cédula o correo electrónico"))
+	}
+
+	tokenDev, err := h.authService.SolicitarRecuperacionPassword(c.Context(), id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.Failure("Error procesando solicitud de recuperación"))
+	}
+
+	respMap := fiber.Map{
+		"mensaje": "Si la información corresponde a una cuenta registrada, se enviarán las instrucciones para restablecer su contraseña.",
+	}
+	if tokenDev != "" && os.Getenv("APP_ENV") != "production" {
+		respMap["tokenDev"] = tokenDev
+	}
+
+	return c.Status(fiber.StatusAccepted).JSON(dto.Success(respMap, "Solicitud de recuperación procesada"))
+}
+
+type RestablecerPasswordRequest struct {
+	Token    string `json:"token"`
+	Password string `json:"password"`
+}
+
+// RestablecerPassword implementa POST /auth/restablecer-password (SDD 7.4, SDD 10.5).
+func (h *AuthHandler) RestablecerPassword(c *fiber.Ctx) error {
+	var req RestablecerPasswordRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("Cuerpo de petición inválido"))
+	}
+
+	req.Token = strings.TrimSpace(req.Token)
+	if req.Token == "" || req.Password == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("El token y la nueva contraseña son obligatorios"))
+	}
+
+	err := h.authService.RestablecerPassword(c.Context(), req.Token, req.Password)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrTokenInvalido):
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.Failure("El enlace de recuperación es inválido o ha expirado"))
+		case errors.Is(err, domain.ErrPasswordInvalida):
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.Failure(err.Error()))
+		case errors.Is(err, domain.ErrNotFound):
+			return c.Status(fiber.StatusNotFound).JSON(dto.Failure("Postulante no encontrado"))
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(dto.Failure("Error interno al restablecer la contraseña"))
+		}
+	}
+
+	return c.JSON(dto.Success(nil, "Contraseña actualizada exitosamente"))
 }
 
 func retryAfterSeconds(duration time.Duration) int {

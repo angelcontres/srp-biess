@@ -161,3 +161,20 @@ func (r *PostgresPostulanteRepository) Update(ctx context.Context, p *domain.Pos
 	}
 	return nil
 }
+
+// UpdatePassword actualiza el hash de la contraseña tras una recuperación (SDD 10.5).
+func (r *PostgresPostulanteRepository) UpdatePassword(ctx context.Context, id string, passwordHash string) error {
+	query := `
+		UPDATE postulante
+		SET password_hash = $2, updated_at = now()
+		WHERE id = $1::uuid`
+
+	cmdTag, err := r.getQuerier(ctx).Exec(ctx, query, id, passwordHash)
+	if err != nil {
+		return fmt.Errorf("error actualizando contraseña: %w", err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}

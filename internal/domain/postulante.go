@@ -36,4 +36,5 @@ type PostulanteRepository interface {
 	GetByEmail(ctx context.Context, email string) (*Postulante, error)
 	Save(ctx context.Context, p *Postulante) error
 	Update(ctx context.Context, p *Postulante) error
+	UpdatePassword(ctx context.Context, id string, passwordHash string) error
 }
