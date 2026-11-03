@@ -2,8 +2,14 @@ import { AxiosError, AxiosHeaders, type AxiosResponse } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const put = vi.fn();
+const get = vi.fn();
+const del = vi.fn();
 vi.mock("@/services/api/client", () => ({
-  api: { put: (...args: unknown[]) => put(...args) },
+  api: {
+    put: (...args: unknown[]) => put(...args),
+    get: (...args: unknown[]) => get(...args),
+    delete: (...args: unknown[]) => del(...args),
+  },
 }));
 
 const { httpGateway } = await import("./httpGateway");
@@ -87,5 +93,33 @@ describe("httpGateway.confirmarCargo (SRP-017a, SDD 7.5.4)", () => {
     await expect(httpGateway.confirmarCargo("p1", 1, 3)).rejects.toBeInstanceOf(
       AxiosError,
     );
+  });
+});
+
+describe('httpGateway documentos (SRP-017b)', () => {
+  beforeEach(() => {
+    get.mockClear();
+    del.mockClear();
+  });
+
+  it('descarga pidiendo antes una URL firmada nueva y la envía con el JWT del cliente', async () => {
+    const pdf = new Blob(['%PDF-1.7']);
+    get
+      .mockImplementationOnce(() =>
+        Promise.resolve({ data: { success: true, data: { urlDescarga: '/api/v1/postulaciones/p1/documentos/d1/download?exp=123&sig=abc' } } }),
+      )
+      .mockImplementationOnce(() => Promise.resolve({ data: pdf }));
+    expect(await httpGateway.descargarDocumento('p1', 'd1')).toBe(pdf);
+    expect(get).toHaveBeenNthCalledWith(1, '/postulaciones/p1/documentos/d1');
+    expect(get).toHaveBeenNthCalledWith(2, '/postulaciones/p1/documentos/d1/download', {
+      responseType: 'blob',
+      params: { exp: '123', sig: 'abc' },
+    });
+  });
+
+  it('elimina con DELETE', async () => {
+    del.mockImplementation(() => Promise.resolve({ status: 204 }));
+    await httpGateway.eliminarDocumento('p1', 'd1');
+    expect(del).toHaveBeenCalledWith('/postulaciones/p1/documentos/d1');
   });
 });

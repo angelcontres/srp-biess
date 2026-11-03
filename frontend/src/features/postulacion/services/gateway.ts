@@ -40,6 +40,13 @@ export interface PostulacionGateway {
     onProgress: (percent: number) => void,
     signal: AbortSignal,
   ): Promise<UploadedFileInfo>;
+  /** DELETE /postulaciones/{id}/documentos/{docId}: removes metadata and the stored PDF. */
+  eliminarDocumento(id: string, docId: string): Promise<void>;
+  /**
+   * GET /postulaciones/{id}/documentos/{docId}/download?exp&sig: asks for a fresh signed
+   * URL first (they expire in 5 minutes) and returns the PDF as a Blob.
+   */
+  descargarDocumento(id: string, docId: string): Promise<Blob>;
   enviar(id: string, version: number): Promise<EnvioResultado>;
   catalogo: CatalogoGeografico;
 }
