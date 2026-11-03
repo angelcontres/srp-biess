@@ -169,14 +169,26 @@ func (r *PostgresPostulacionRepository) UpdateSubmit(ctx context.Context, id, co
 		    codigo_unico = $2,
 		    fecha_envio = $3,
 		    updated_at = now()
-		WHERE id = $1::uuid`
+		WHERE id = $1::uuid AND estado IN ('BORRADOR', 'LISTA_PARA_ENVIO')`
 
 	cmdTag, err := r.getQuerier(ctx).Exec(ctx, query, id, codigoUnico, fechaEnvio)
 	if err != nil {
 		return fmt.Errorf("error actualizando envio de postulación: %w", err)
 	}
 	if cmdTag.RowsAffected() == 0 {
-		return domain.ErrNotFound
+		return domain.ErrPostulacionYaEnviada
 	}
 	return nil
+}
+
+// NextCodigoUnico genera el siguiente código correlativo único institucional usando la secuencia de PostgreSQL (SRP-005, SDD 10.9).
+func (r *PostgresPostulacionRepository) NextCodigoUnico(ctx context.Context) (string, error) {
+	query := `SELECT nextval('seq_codigo_postulacion')`
+	var seqVal int64
+	err := r.getQuerier(ctx).QueryRow(ctx, query).Scan(&seqVal)
+	if err != nil {
+		return "", fmt.Errorf("error generando correlativo de secuencia seq_codigo_postulacion: %w", err)
+	}
+	year := time.Now().Year()
+	return fmt.Sprintf("BIESS-%d-%05d", year, seqVal), nil
 }

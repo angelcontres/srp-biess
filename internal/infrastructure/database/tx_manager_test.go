@@ -99,6 +99,47 @@ func TestTxManager_CommitAndRollback(t *testing.T) {
 			t.Errorf("se esperaba ErrNotFound tras rollback, obtenido: %v", err)
 		}
 	})
+	t.Run("3. Transacción anidada reutiliza la transacción existente en el contexto", func(t *testing.T) {
+		cedula := fmt.Sprintf("11%08d", time.Now().UnixNano()%100000000)
+		email := fmt.Sprintf("nested_%d@biess.gob.ec", time.Now().UnixNano())
+		p := &domain.Postulante{
+			Cedula:       cedula,
+			Nombres:      "JORGE",
+			Apellidos:    "ANIDADO",
+			Email:        email,
+			PasswordHash: "secret",
+		}
+
+		err := txManager.WithTransaction(ctx, func(txCtx1 context.Context) error {
+			if err := postulanteRepo.Save(txCtx1, p); err != nil {
+				return err
+			}
+			// Llamada anidada que debe reutilizar txCtx1 sin abrir nuevo pool.Begin
+			return txManager.WithTransaction(txCtx1, func(txCtx2 context.Context) error {
+				pDB, err := postulanteRepo.GetByCedula(txCtx2, cedula)
+				if err != nil {
+					return err
+				}
+				if pDB.Nombres != "JORGE" {
+					return fmt.Errorf("nombres inesperados en tx anidada: %s", pDB.Nombres)
+				}
+				return nil
+			})
+		})
+
+		if err != nil {
+			t.Fatalf("error inesperado en transacción anidada: %v", err)
+		}
+
+		// Debe persistir tras el commit de la transacción raíz
+		pFinal, err := postulanteRepo.GetByCedula(ctx, cedula)
+		if err != nil {
+			t.Fatalf("se esperaba postulante persistido: %v", err)
+		}
+		if pFinal.Cedula != cedula {
+			t.Errorf("cedula = %s; want %s", pFinal.Cedula, cedula)
+		}
+	})
 }
 
 func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
@@ -260,6 +301,93 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		}
 		if len(docs) > 0 {
 			t.Errorf("DOCUMENTO PERSISTIDO TRAS ROLLBACK: se encontraron %d documentos", len(docs))
+		}
+	})
+	t.Run("3. Prevención de doble envío: segundo intento devuelve ErrPostulacionYaEnviada", func(t *testing.T) {
+		cedula3 := fmt.Sprintf("18%08d", time.Now().UnixNano()%100000000)
+		email3 := fmt.Sprintf("postulante_doble_%d@biess.gob.ec", time.Now().UnixNano())
+		postulante3 := &domain.Postulante{
+			Cedula:       cedula3,
+			Nombres:      "MARIA",
+			Apellidos:    "DOBLE ENVIO",
+			Email:        email3,
+			PasswordHash: "hash_seguro",
+		}
+		if err := postulanteRepo.Save(ctx, postulante3); err != nil {
+			t.Fatalf("error creando postulante 3: %v", err)
+		}
+
+		postulacion3 := &domain.Postulacion{
+			PostulanteID: postulante3.ID,
+			CargoID:      "1",
+			Estado:       domain.EstadoBorrador,
+		}
+		if err := postulacionRepo.Save(ctx, postulacion3); err != nil {
+			t.Fatalf("error guardando postulacion 3: %v", err)
+		}
+
+		svc := application.NewPostulacionService(txManager, postulacionRepo, realDocRepo, notifRepo)
+
+		// Primer envío exitoso
+		res1, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
+			PostulacionID: postulacion3.ID,
+			Email:         postulante3.Email,
+		})
+		if err != nil {
+			t.Fatalf("primer envío debió ser exitoso: %v", err)
+		}
+		if res1.CodigoUnico == "" {
+			t.Fatalf("primer envío no generó código")
+		}
+
+		// Segundo envío concurrente/inmediato debe ser rechazado
+		_, err = svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
+			PostulacionID: postulacion3.ID,
+			Email:         postulante3.Email,
+		})
+		if !errors.Is(err, application.ErrPostulacionYaEnviada) {
+			t.Fatalf("se esperaba ErrPostulacionYaEnviada, obtenido: %v", err)
+		}
+	})
+
+	t.Run("4. Envío exitoso desde estado LISTA_PARA_ENVIO con código correlativo", func(t *testing.T) {
+		cedula4 := fmt.Sprintf("19%08d", time.Now().UnixNano()%100000000)
+		email4 := fmt.Sprintf("postulante_lista_%d@biess.gob.ec", time.Now().UnixNano())
+		postulante4 := &domain.Postulante{
+			Cedula:       cedula4,
+			Nombres:      "ESTEBAN",
+			Apellidos:    "LISTO PARA ENVIO",
+			Email:        email4,
+			PasswordHash: "hash_seguro",
+		}
+		if err := postulanteRepo.Save(ctx, postulante4); err != nil {
+			t.Fatalf("error creando postulante 4: %v", err)
+		}
+
+		postulacion4 := &domain.Postulacion{
+			PostulanteID: postulante4.ID,
+			CargoID:      "1",
+			Estado:       domain.EstadoListaParaEnvio,
+		}
+		if err := postulacionRepo.Save(ctx, postulacion4); err != nil {
+			t.Fatalf("error guardando postulacion 4: %v", err)
+		}
+
+		svc := application.NewPostulacionService(txManager, postulacionRepo, realDocRepo, notifRepo)
+
+		res, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
+			PostulacionID: postulacion4.ID,
+			Email:         postulante4.Email,
+		})
+		if err != nil {
+			t.Fatalf("envío desde LISTA_PARA_ENVIO falló: %v", err)
+		}
+
+		if res.Estado != string(domain.EstadoEnviada) {
+			t.Errorf("estado = %s; want %s", res.Estado, domain.EstadoEnviada)
+		}
+		if res.CodigoUnico == "" {
+			t.Errorf("se esperaba código único correlativo generado")
 		}
 	})
 }

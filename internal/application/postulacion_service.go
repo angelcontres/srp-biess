@@ -64,21 +64,30 @@ func (s *PostulacionService) EnviarPostulacion(ctx context.Context, req EnviarPo
 		// 1. Validar existencia y estado actual de la postulación
 		p, err := s.postulacionRepo.GetByID(txCtx, req.PostulacionID)
 		if err != nil {
-			return ErrPostulacionNoEncontrada
+			if errors.Is(err, domain.ErrNotFound) {
+				return ErrPostulacionNoEncontrada
+			}
+			return fmt.Errorf("error al consultar postulación: %w", err)
 		}
 		if p.Estado == domain.EstadoEnviada {
 			return ErrPostulacionYaEnviada
 		}
-		if p.Estado != domain.EstadoBorrador {
+		if p.Estado != domain.EstadoBorrador && p.Estado != domain.EstadoListaParaEnvio {
 			return ErrPostulacionInvalida
 		}
 
-		// 2. Componer código único institucional (ADR-004, SDD 10.9)
+		// 2. Generar código correlativo único institucional desde la secuencia de PostgreSQL (ADR-004, SDD 10.9)
 		now := time.Now()
-		codigoUnico := fmt.Sprintf("BIESS-%d-%05d", now.Year(), now.UnixNano()%100000)
+		codigoUnico, err := s.postulacionRepo.NextCodigoUnico(txCtx)
+		if err != nil {
+			return fmt.Errorf("error al generar código correlativo único: %w", err)
+		}
 
-		// 3. Actualizar estado y fecha en postulacion
+		// 3. Actualizar estado y fecha en postulacion de forma atómica y optimista (previene envíos duplicados concurrentes)
 		if err := s.postulacionRepo.UpdateSubmit(txCtx, p.ID, codigoUnico, now); err != nil {
+			if errors.Is(err, domain.ErrPostulacionYaEnviada) {
+				return ErrPostulacionYaEnviada
+			}
 			return fmt.Errorf("error al actualizar estado de postulación: %w", err)
 		}
 

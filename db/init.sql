@@ -220,6 +220,8 @@ CREATE TABLE IF NOT EXISTS familiar_institucion (
 -- ---------------------------------------------------------------------
 -- 5. Postulación y Documentos (EF-12)
 -- ---------------------------------------------------------------------
+CREATE SEQUENCE IF NOT EXISTS seq_codigo_postulacion START WITH 1;
+
 CREATE TABLE IF NOT EXISTS postulacion (
   id                            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   codigo_unico                  varchar(30) UNIQUE,

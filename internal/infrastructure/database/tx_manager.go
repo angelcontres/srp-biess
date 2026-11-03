@@ -32,6 +32,11 @@ func (m *PgxTxManager) WithTransaction(ctx context.Context, fn func(txCtx contex
 		return fmt.Errorf("pool de base de datos no disponible para transacción")
 	}
 
+	// Si ya existe una transacción activa en el contexto, la reutilizamos (soporte para transacciones anidadas)
+	if existingTx, ok := ctx.Value(txContextKey{}).(pgx.Tx); ok && existingTx != nil {
+		return fn(ctx)
+	}
+
 	tx, txErr := m.pool.Begin(ctx)
 	if txErr != nil {
 		return fmt.Errorf("error al abrir transacción con BEGIN: %w", txErr)

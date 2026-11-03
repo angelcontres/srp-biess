@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"srp-biess/internal/domain"
 )
@@ -27,7 +28,7 @@ func (r *PostgresNotificacionRepository) getQuerier(ctx context.Context) Querier
 func (r *PostgresNotificacionRepository) Enqueue(ctx context.Context, n *domain.Notificacion) error {
 	payloadJSON, err := json.Marshal(n.Payload)
 	if err != nil {
-		payloadJSON = []byte("{}")
+		return fmt.Errorf("error serializando payload de notificación: %w", err)
 	}
 
 	query := `
