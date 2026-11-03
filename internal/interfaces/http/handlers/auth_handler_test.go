@@ -212,4 +212,48 @@ func TestAuthHandler_Lifecycle(t *testing.T) {
 			t.Errorf("status = %d; want 200", resp.StatusCode)
 		}
 	})
+
+	t.Run("9. Contrato SDD de validación algorítmica", func(t *testing.T) {
+		body := strings.NewReader(`{"cedula":"1710034065"}`)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/validaciones/cedula", body)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d; want 200", resp.StatusCode)
+		}
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			t.Fatalf("respuesta inválida: %v", err)
+		}
+		if result["valida"] != true || result["provincia"] != "PICHINCHA" ||
+			result["codigoProvincia"] != "17" || result["tipo"] != "PERSONA_NATURAL" ||
+			result["algoritmo"] != "MODULO_10" {
+			t.Fatalf("contrato inesperado: %v", result)
+		}
+	})
+
+	t.Run("10. Cédula inválida devuelve código SDD", func(t *testing.T) {
+		body := strings.NewReader(`{"cedula":"1710034060"}`)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/validaciones/cedula", body)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if resp.StatusCode != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d; want 422", resp.StatusCode)
+		}
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			t.Fatalf("respuesta inválida: %v", err)
+		}
+		if result["codigo"] != "VAL_CEDULA_INVALIDA" {
+			t.Fatalf("código inesperado: %v", result)
+		}
+	})
 }

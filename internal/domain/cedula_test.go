@@ -33,6 +33,13 @@ func TestValidarCedulaEcuador(t *testing.T) {
 	}
 }
 
+func TestProvinciaCedula(t *testing.T) {
+	codigo, nombre, ok := domain.ProvinciaCedula("1710034065")
+	if !ok || codigo != "17" || nombre != "PICHINCHA" {
+		t.Fatalf("provincia inesperada: codigo=%q nombre=%q ok=%v", codigo, nombre, ok)
+	}
+}
+
 // Pruebas del Patrón Strategy
 func TestDocumentValidationStrategies(t *testing.T) {
 	t.Run("Estrategia Cédula Ecuatoriana", func(t *testing.T) {

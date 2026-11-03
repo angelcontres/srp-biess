@@ -121,8 +121,7 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	return c.JSON(dto.Success(nil, "Sesión cerrada correctamente"))
 }
 
-// ValidarCedula valida el formato de documento con la estrategia Módulo 10.
-// TODO(backend: SRP-008): alinear ruta y respuesta con SDD 7.6.1 (ver TODO en router.go).
+// ValidarCedula valida una cédula con el algoritmo Módulo 10 (SDD 7.6.1).
 func (h *AuthHandler) ValidarCedula(c *fiber.Ctx) error {
 	var req ValidarCedulaRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -130,13 +129,24 @@ func (h *AuthHandler) ValidarCedula(c *fiber.Ctx) error {
 	}
 
 	if err := h.authService.ValidarIdentidad(req.Cedula); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.Failure(err.Error()))
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"codigo":  "VAL_CEDULA_INVALIDA",
+			"mensaje": "El número de cédula ingresado no cumple con el algoritmo Módulo 10 ecuatoriano",
+			"detalles": []fiber.Map{{
+				"campo": "cedula",
+				"error": "Cédula inválida",
+			}},
+		})
 	}
 
-	return c.JSON(dto.Success(fiber.Map{
-		"cedula": req.Cedula,
-		"valida": true,
-	}, "Cédula verificada correctamente con algoritmo Módulo 10"))
+	codigo, provincia, _ := domain.ProvinciaCedula(req.Cedula)
+	return c.JSON(fiber.Map{
+		"valida":          true,
+		"provincia":       provincia,
+		"codigoProvincia": codigo,
+		"tipo":            "PERSONA_NATURAL",
+		"algoritmo":       "MODULO_10",
+	})
 }
 
 // Me retorna la identidad del postulante autenticado mediante el contexto inyectado (SRP-003).
