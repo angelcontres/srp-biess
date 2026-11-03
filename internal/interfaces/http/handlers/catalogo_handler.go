@@ -11,7 +11,7 @@ import (
 
 // CatalogoHandler expone los catálogos geográficos públicos de SDD 7.3.2 (integración de SRP-013/SRP-014).
 //
-// TODO(backend: SRP-007): agregar la caché cache-aside en Redis (TTL 24 h) con fallback a PostgreSQL.
+// La caché cache-aside en Redis (SRP-007) se inyecta en cmd/api/main.go como decorador del repositorio.
 type CatalogoHandler struct {
 	service *application.CatalogoService
 }
