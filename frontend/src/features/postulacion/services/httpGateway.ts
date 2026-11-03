@@ -6,7 +6,7 @@ import type { DatosVerificados, OpcionPais, PostulacionEstado, SeccionEditable }
 
 // Endpoints available (SRP-013 minimal integration): GET /postulaciones/actual,
 // POST /postulaciones, GET /postulaciones/{id} and the section saves of SDD 7.3.4.
-// TODO(backend: SRP-005): PUT /cargo (eligibility), /documentos and /enviar.
+// PUT /cargo (eligibility) is SRP-017a. TODO(backend: SRP-017): /documentos (#40) and /enviar (#43).
 // TODO(backend: SRP-007): catalog endpoints of SDD 7.3.2.
 
 /** API envelope `{ success, data, message }` or a bare body. */
@@ -89,9 +89,18 @@ export const httpGateway: PostulacionGateway = {
   },
 
   async confirmarCargo(id, cargoId, version) {
-    const body = unwrap<{ postulacion: PostulacionEstado; elegibilidad: PostulacionEstado['elegibilidad'] }>(
-      (await api.put(`/postulaciones/${id}/cargo`, { cargoId, confirmacion: true, version })).data,
-    );
+    type RespuestaCargo = { postulacion: PostulacionEstado; elegibilidad: PostulacionEstado['elegibilidad'] };
+    let body: RespuestaCargo;
+    try {
+      body = unwrap<RespuestaCargo>((await api.put(`/postulaciones/${id}/cargo`, { cargoId, confirmacion: true, version })).data);
+    } catch (error) {
+      // SDD 7.5.4: not eligible answers 422 POS_NO_ELEGIBLE_* with the closed application in `data`.
+      // Any other failure (503, network) propagates: the section shows the retry notice (RF-EF12-10).
+      if (!axios.isAxiosError<{ code?: string; data?: RespuestaCargo }>(error)) throw error;
+      const problema = error.response?.data;
+      if (error.response?.status !== 422 || !problema?.code?.startsWith('POS_NO_ELEGIBLE') || !problema.data) throw error;
+      body = problema.data;
+    }
     if (!body.elegibilidad) throw new Error('Respuesta de elegibilidad incompleta.');
     return { postulacion: body.postulacion, elegibilidad: body.elegibilidad };
   },

@@ -149,7 +149,23 @@
   - [ ] Las cinco partes cerradas.
   - [ ] El recorrido completo (secciones 1 a 10, adjuntos y envío) funciona con `VITE_POSTULACION_MOCK` apagado.
   - [ ] `go build ./cmd/api` y `go test ./...` en verde, con las pruebas de integración contra PostgreSQL incluidas.
-* **Nota de revisión:** decisiones que hay que cerrar antes de codificar: persistencia de la `Idempotency-Key` (no hay tabla ni columna), estrategia de normalización (doble escritura, volcado al enviar o migrar y retirar el JSONB), fuente única de reglas de validación (duplicar Zod en Go es deuda) y cuotas de archivo (2 MB y 50 MB solo existen en la aplicación). El mapeo de secciones no es 1:1: `PUT /{id}/respaldo-organizacional` guarda la sección `cargo`, que contiene los datos de respaldo organizacional.
+* **Decisiones tomadas** (el detalle vive en cada sub-issue):
+  * **#39 Cargo:** la respuesta sigue entregando el objeto `elegibilidad` derivado que la SPA consume.
+  * **#40 Documentos:** carga y borrado solo en `BORRADOR` (otro estado responde 409); `FORMULARIO_POSTULACION` se rechaza con 400 porque lo genera el envío; firma `%PDF-` o 415; 4 MB respaldo, 2 MB resto y 50 MB acumulado, todo con 413. La base garantiza solo 4 MB (`ck_documento_tamano`, sin migración); el 2 MB y el acumulado son reglas de aplicación, y un rechazo del `CHECK` (`23514`) se traduce a 413, nunca 500. Cuota con `SELECT … FOR UPDATE` sobre la postulación. Descarga con doble validación, firma HMAC (`DOCUMENTOS_URL_SECRETO`, 5 min) y JWT: sin JWT 401, firma vencida o manipulada 403. La respuesta incluye `fechaCarga` desde `created_at`.
+  * **#41 Validación:** las reglas se definen por sección en una fuente única de la que derivan Go y la SPA. Pendiente: el formato de esa fuente.
+  * **#42 Normalización:** al enviar; el JSONB es la fuente durante el borrador y el volcado corre dentro de la transacción de #43.
+  * **#43 Envío:** tabla nueva para la `Idempotency-Key`, sin confiar en el estado. Pendiente: resolver el envío concurrente con la misma llave (`FOR UPDATE`, `UNIQUE` o ambos).
+* **Implementación de #39 (integración autorizada por el responsable del frontend):**
+  * `PUT /postulaciones/{id}/cargo` → `CargoHandler` → `CargoService` → `domain.CargoRepository` (implementado por `PostgresFormularioRepository`, `cargo_repository.go`). Sigue SDD 7.5.4 y 10.7:
+    * **Elegible:** 200 con los campos del SDD (`elegible`, `mensaje`, `requiereRespaldo`, `version`) más `{ postulacion, elegibilidad }`, que consume la SPA.
+    * **No elegible:** 422 `POS_NO_ELEGIBLE_AFI|JUB|EMP` con `detail` (mensaje institucional) y `estado: NO_ELEGIBLE`, más el mismo `data`. La postulación queda `NO_ELEGIBLE`. `httpGateway.confirmarCargo` convierte ese 422 en el resultado no elegible; cualquier otro error sigue mostrando el aviso de reintento.
+  * La selección es definitiva: solo se confirma con la postulación en `BORRADOR` y la elegibilidad en `PENDIENTE`; un segundo intento responde 409 `POS_CARGO_CONFIRMADO`. Guardado en una sola sentencia con control de versión (409 `POS_CONFLICTO_VERSION`).
+  * El IESS se consulta con espera máxima `IESS_TIMEOUT` (5 s por defecto); caída, timeout o error responde 503 `INTEGRACION_NO_DISPONIBLE` sin escribir nada.
+  * Cargo inexistente o inactivo: 400 `POS_CARGO_INVALIDO`. El SDD no relaciona `cargo` con `convocatoria`, así que "cargo de la convocatoria vigente" se valida como cargo activo.
+  * Postulación inexistente: 404 `POS_NO_ENCONTRADA`. Postulación de otro postulante: 403 `POS_ACCESO_DENEGADO` (código nuevo, no está en el catálogo de SDD 16.6).
+  * **Auditoría (SDD 9.9, 10.7):** `auditoria_evento` con actor, IP, user agent, `trace_id` (`X-Request-ID`) y datos antes/después sin cédula. El `UPDATE` y el evento `CARGO_CONFIRMADO` o `POSTULACION_NO_ELEGIBLE` van en la misma transacción del `TxManager`: si falla la auditoría, no se guarda el cargo. El 403 se audita como `ACCESO_DENEGADO` fuera de la transacción.
+  * Mensaje elegible: "Postulante afiliado al IESS" (SDD 7.5.4), "Postulante jubilado" y "Postulante empleador" (SRS 3.5.11).
+* **Nota de revisión:** el mapeo de secciones no es 1:1: `PUT /{id}/respaldo-organizacional` guarda la sección `cargo`, que contiene los datos de respaldo organizacional.
 
 ---
 

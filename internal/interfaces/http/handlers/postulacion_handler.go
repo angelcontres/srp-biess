@@ -40,6 +40,16 @@ func responderError(c *fiber.Ctx, err error) error {
 		return fallo(c, fiber.StatusConflict, "POS_CERRADA", "La postulación ya no admite cambios.")
 	case errors.Is(err, domain.ErrSeccionInvalida):
 		return fallo(c, fiber.StatusUnprocessableEntity, "VALIDATION_ERROR", "Los datos de la sección no son válidos.")
+	case errors.Is(err, domain.ErrAccesoDenegado):
+		return fallo(c, fiber.StatusForbidden, "POS_ACCESO_DENEGADO", "No tiene permiso para modificar esta postulación.")
+	case errors.Is(err, domain.ErrCargoInvalido):
+		return fallo(c, fiber.StatusBadRequest, "POS_CARGO_INVALIDO", "El cargo seleccionado no está disponible.")
+	case errors.Is(err, domain.ErrConfirmacionCargo):
+		return fallo(c, fiber.StatusBadRequest, "VALIDATION_ERROR", "Debe confirmar la selección del cargo.")
+	case errors.Is(err, domain.ErrCargoYaConfirmado):
+		return fallo(c, fiber.StatusConflict, "POS_CARGO_CONFIRMADO", "El cargo de esta postulación ya fue confirmado.")
+	case errors.Is(err, domain.ErrExternalUnavailable):
+		return fallo(c, fiber.StatusServiceUnavailable, "INTEGRACION_NO_DISPONIBLE", "No es posible validar su calidad laboral en este momento.")
 	case errors.Is(err, application.ErrPersistenciaNoDisponible):
 		return fallo(c, fiber.StatusServiceUnavailable, "SERVICIO_NO_DISPONIBLE", "El servicio de postulaciones no está disponible.")
 	default:

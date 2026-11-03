@@ -61,6 +61,8 @@ func main() {
 	var postulacionService *application.PostulacionService
 	// Se deja en nil (interfaz nula) sin PostgreSQL: el servicio responde 503 en lugar de fallar.
 	var formularioRepo domain.FormularioRepository
+	var cargoRepo domain.CargoRepository
+	var auditoriaRepo domain.AuditoriaRepository
 
 	if pool != nil {
 		postulanteRepo = database.NewPostgresPostulanteRepository(pool)
@@ -73,7 +75,10 @@ func main() {
 		txManager = database.NewPgxTxManager(pool)
 		postulacionService = application.NewPostulacionService(txManager, postulacionRepo, documentoRepo, notificacionRepo)
 		_ = postulacionService
-		formularioRepo = database.NewPostgresFormularioRepository(pool)
+		formularioPg := database.NewPostgresFormularioRepository(pool)
+		formularioRepo = formularioPg
+		cargoRepo = formularioPg // SRP-017a: confirmación del cargo
+		auditoriaRepo = database.NewPostgresAuditoriaRepository(pool)
 		_ = postulacionRepo
 		_ = documentoRepo
 	}
@@ -101,6 +106,7 @@ func main() {
 		WithIdentityProvider(registroCivilMock)
 	eligibilityService := application.NewEligibilityService(iessMock)
 	formularioService := application.NewFormularioService(formularioRepo) // SRP-013, integración mínima
+	cargoService := application.NewCargoService(txManager, cargoRepo, auditoriaRepo, eligibilityService, iessTimeout())
 	// Sin PostgreSQL el handler recibe nil y responde 503 (no se invoca un repositorio nulo).
 	var catalogoService *application.CatalogoService
 	if catalogoRepo != nil {
@@ -114,6 +120,7 @@ func main() {
 	authHandler := handlers.NewAuthHandler(authService)
 	eligibilityHandler := handlers.NewEligibilityHandler(eligibilityService)
 	postulacionHandler := handlers.NewPostulacionHandler(formularioService)
+	cargoHandler := handlers.NewCargoHandler(cargoService)
 	catalogoHandler := handlers.NewCatalogoHandler(catalogoService)
 
 	// =========================================================================
@@ -140,6 +147,7 @@ func main() {
 		AuthHandler:        authHandler,
 		EligibilityHandler: eligibilityHandler,
 		PostulacionHandler: postulacionHandler,
+		CargoHandler:       cargoHandler,
 		CatalogoHandler:    catalogoHandler,
 		AuthService:        authService,
 	})
@@ -180,4 +188,12 @@ func cacheEnv() string {
 	default:
 		return env
 	}
+}
+
+// iessTimeout lee IESS_TIMEOUT (p. ej. "5s"); un valor ausente o inválido usa el valor por defecto.
+func iessTimeout() time.Duration {
+	if d, err := time.ParseDuration(os.Getenv("IESS_TIMEOUT")); err == nil && d > 0 {
+		return d
+	}
+	return application.DefaultIESSTimeout
 }
