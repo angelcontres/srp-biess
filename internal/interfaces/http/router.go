@@ -27,6 +27,7 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 
 	// Grupo API v1
 	v1 := app.Group("/api/v1")
+	v1.Get("/health", cfg.HealthHandler.Check)
 
 	// -----------------------------------------------------------------
 	// Autenticación & Sesión (ADR-006, SDD 07, SRP-003)
@@ -75,6 +76,8 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 
 	// -----------------------------------------------------------------
 	// Formulario de postulación (SDD 7.3.4): integración de SRP-013 y SRP-017c.
+	// El JWT se aplica por grupo con prefijo propio, así que las rutas inexistentes
+	// bajo /postulaciones responden 404 y no 401.
 	// -----------------------------------------------------------------
 	if cfg.PostulacionHandler != nil && cfg.AuthService != nil {
 		h := cfg.PostulacionHandler

@@ -82,7 +82,7 @@ call :CHECK_ENV
 echo.
 echo [*] Preparando variables para modo produccion...
 echo [*] Levantando contenedores en modo produccion...
-docker compose up -d --remove-orphans
+docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
 echo.
 echo [OK] Entorno iniciado en modo produccion.
 echo Recuerda configurar credenciales de produccion en el archivo .env
@@ -165,3 +165,4 @@ goto MENU
 echo.
 echo Saliendo del panel. Hasta luego.
 exit /b 0
+

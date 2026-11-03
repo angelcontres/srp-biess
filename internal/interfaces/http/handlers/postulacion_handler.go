@@ -33,6 +33,16 @@ func fallo(c *fiber.Ctx, status int, code, mensaje string) error {
 
 // responderError traduce los errores de dominio a códigos del catálogo SDD 16.6.
 func responderError(c *fiber.Ctx, err error) error {
+	var valErr *domain.ErrorValidacionSeccion
+	if errors.As(err, &valErr) {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"success":  false,
+			"code":     "VALIDATION_ERROR",
+			"error":    "Los datos de la sección no son válidos.",
+			"detalles": valErr.Detalles,
+		})
+	}
+
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		return fallo(c, fiber.StatusNotFound, "POS_NO_ENCONTRADA", "No existe una postulación para este postulante.")

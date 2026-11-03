@@ -17,5 +17,7 @@ echo -e "${BLUE}================================================================
 
 echo -e "${YELLOW}[*] Deteniendo contenedores de Docker Compose...${NC}"
 docker compose down
+docker compose -f docker-compose.prod.yml down >/dev/null 2>&1
 
 echo -e "\n${GREEN}[OK] Contenedores detenidos correctamente.${NC}\n"
+

@@ -112,7 +112,7 @@ func main() {
 		WithAuthAttemptStore(authAttemptStore).
 		WithIdentityProvider(registroCivilMock)
 	eligibilityService := application.NewEligibilityService(iessMock)
-	formularioService := application.NewFormularioService(formularioRepo) // SRP-013, integración mínima
+	formularioService := application.NewFormularioService(formularioRepo).WithCatalogoRepository(catalogoRepo) // SRP-013, integración mínima
 	cargoService := application.NewCargoService(txManager, cargoRepo, auditoriaRepo, eligibilityService, iessTimeout())
 	limitesDocumento := limitesDocumento()
 	var documentoService *application.DocumentoService
