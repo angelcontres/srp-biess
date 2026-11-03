@@ -42,3 +42,15 @@ func NewRedisClient(ctx context.Context) *redis.Client {
 
 	return rdb
 }
+
+// KeyEnv devuelve el segmento {env} de las claves srp:{env}:... (SDD 4) a partir de APP_ENV.
+func KeyEnv() string {
+	switch env := os.Getenv("APP_ENV"); env {
+	case "", "development":
+		return "dev"
+	case "production":
+		return "prod"
+	default:
+		return env
+	}
+}

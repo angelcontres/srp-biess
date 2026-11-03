@@ -38,12 +38,16 @@ func (s *AuthService) WithIdentityProvider(identity domain.IdentityProvider) *Au
 
 // ValidarIdentidadRegistro contrasta cédula + dato con el Registro Civil (SDD 7.4.1).
 // Aplica primero el Módulo 10 (SRP-008): si falla, no se llama al proveedor externo.
+// Al 3er dato erróneo consecutivo bloquea el registro 10 minutos (RF-EF11-04, SRP-006).
 func (s *AuthService) ValidarIdentidadRegistro(ctx context.Context, cedula string, tipo domain.TipoValidacion, valor string) (*IdentidadValidada, error) {
 	if !tipo.EsValido() {
 		return nil, domain.ErrInvalidTipoValidacion
 	}
 	if err := s.ValidarIdentidad(cedula); err != nil {
 		return nil, domain.ErrInvalidCedula
+	}
+	if err := s.verificarBloqueo(ctx, domain.ScopeRegistro, cedula); err != nil {
+		return nil, err
 	}
 	if s.identity == nil {
 		return nil, domain.ErrExternalUnavailable
@@ -54,11 +58,12 @@ func (s *AuthService) ValidarIdentidadRegistro(ctx context.Context, cedula strin
 		if errors.Is(err, domain.ErrInvalidTipoValidacion) {
 			return nil, err
 		}
-		return nil, domain.ErrExternalUnavailable
+		return nil, domain.ErrExternalUnavailable // Error técnico: no consume intento (SDD 10.3)
 	}
 	if res == nil || !res.Match {
-		return nil, domain.ErrIdentityMismatch
+		return nil, s.registrarFallo(ctx, domain.ScopeRegistro, cedula, domain.ErrIdentityMismatch)
 	}
+	s.reiniciarIntentos(ctx, domain.ScopeRegistro, cedula)
 
 	token, err := s.generarTokenValidacion(cedula)
 	if err != nil {

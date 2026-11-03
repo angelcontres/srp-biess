@@ -72,6 +72,7 @@ type AuthService struct {
 	validator    domain.DocumentValidationStrategy
 	sessionStore domain.SessionStore
 	identity     domain.IdentityProvider // Registro Civil (SDD 7.4.1)
+	limiter      domain.AttemptLimiter   // Bloqueo por intentos fallidos en Redis (SRP-006)
 
 	// Fallback para usuarios semilla en pruebas si repo no está inicializado
 	seedUsersMu sync.RWMutex
@@ -139,12 +140,20 @@ func (s *AuthService) Login(ctx context.Context, cedula, password string) (*Logi
 		return nil, domain.ErrInvalidCredentials // Mensaje estándar SDD 9.2.3 para evitar enumeración
 	}
 
+	// Bloqueo de 10 minutos tras 3 fallos consecutivos (RF-EF11-06, SRP-006)
+	if err := s.verificarBloqueo(ctx, domain.ScopeLogin, cedula); err != nil {
+		return nil, err
+	}
+
 	var postulanteID, email, passHash string
 
 	if s.repo != nil {
 		p, err := s.repo.GetByCedula(ctx, cedula)
-		if err != nil || p == nil {
-			return nil, domain.ErrInvalidCredentials
+		if err != nil && !errors.Is(err, domain.ErrNotFound) {
+			return nil, domain.ErrInvalidCredentials // Error técnico: no consume intento
+		}
+		if p == nil {
+			return nil, s.registrarFallo(ctx, domain.ScopeLogin, cedula, domain.ErrInvalidCredentials)
 		}
 		postulanteID = p.ID
 		email = p.Email
@@ -155,7 +164,7 @@ func (s *AuthService) Login(ctx context.Context, cedula, password string) (*Logi
 		u, ok := s.seedUsers[cedula]
 		s.seedUsersMu.RUnlock()
 		if !ok {
-			return nil, domain.ErrInvalidCredentials
+			return nil, s.registrarFallo(ctx, domain.ScopeLogin, cedula, domain.ErrInvalidCredentials)
 		}
 		postulanteID = u.postulanteID
 		email = u.email
@@ -165,8 +174,9 @@ func (s *AuthService) Login(ctx context.Context, cedula, password string) (*Logi
 	// 2. Verificar contraseña en tiempo constante con Argon2id
 	match, err := s.VerifyPassword(password, passHash)
 	if err != nil || !match {
-		return nil, domain.ErrInvalidCredentials
+		return nil, s.registrarFallo(ctx, domain.ScopeLogin, cedula, domain.ErrInvalidCredentials)
 	}
+	s.reiniciarIntentos(ctx, domain.ScopeLogin, cedula)
 
 	// 3. Generar Access Token (15 min)
 	accessToken, err := s.GenerarAccessToken(postulanteID, cedula, email)

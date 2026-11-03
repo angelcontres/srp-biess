@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"errors"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,6 +31,30 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// responderControlIntentos traduce el bloqueo a 423 + Retry-After y la caída de Redis a 503 (SRP-006, SDD 9.5).
+// Devuelve false si el error no corresponde al control de intentos.
+func responderControlIntentos(c *fiber.Ctx, err error) (bool, error) {
+	var bloqueo *domain.LockoutError
+	if errors.As(err, &bloqueo) {
+		segundos := int(math.Ceil(bloqueo.RetryAfter.Seconds()))
+		code := "AUTH_REGISTRO_BLOQUEADO"
+		if bloqueo.Scope == domain.ScopeLogin {
+			code = "AUTH_LOGIN_BLOQUEADO"
+		}
+		c.Set(fiber.HeaderRetryAfter, strconv.Itoa(segundos))
+		return true, c.Status(fiber.StatusLocked).JSON(fiber.Map{
+			"success":           false,
+			"code":              code,
+			"error":             bloqueo.Error(),
+			"retryAfterSeconds": segundos,
+		})
+	}
+	if errors.Is(err, domain.ErrAttemptLimiterUnavailable) {
+		return true, c.Status(fiber.StatusServiceUnavailable).JSON(dto.Failure(err.Error()))
+	}
+	return false, nil
+}
+
 // Login maneja la autenticación por cédula y contraseña emitiendo JWT (15 min) y cookie HttpOnly (8 h) (ADR-006, SDD 07).
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
@@ -42,6 +68,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 
 	result, err := h.authService.Login(c.Context(), req.Cedula, req.Password)
 	if err != nil {
+		if ok, resErr := responderControlIntentos(c, err); ok {
+			return resErr
+		}
 		if errors.Is(err, domain.ErrInvalidCredentials) {
 			return c.Status(fiber.StatusUnauthorized).JSON(dto.Failure("Sus credenciales de ingreso son incorrectas"))
 		}
@@ -172,6 +201,9 @@ func (h *AuthHandler) ValidarIdentidadRegistro(c *fiber.Ctx) error {
 
 	res, err := h.authService.ValidarIdentidadRegistro(c.Context(), req.Cedula, domain.TipoValidacion(req.TipoValidacion), req.Valor)
 	if err != nil {
+		if ok, resErr := responderControlIntentos(c, err); ok {
+			return resErr
+		}
 		switch {
 		case errors.Is(err, domain.ErrInvalidTipoValidacion):
 			return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("Tipo de validación no soportado"))
