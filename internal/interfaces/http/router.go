@@ -14,6 +14,7 @@ type RouterConfig struct {
 	AuthHandler        *handlers.AuthHandler
 	EligibilityHandler *handlers.EligibilityHandler
 	PostulacionHandler *handlers.PostulacionHandler
+	CargoHandler       *handlers.CargoHandler
 	CatalogoHandler    *handlers.CatalogoHandler
 	AuthService        *application.AuthService
 }
@@ -82,7 +83,7 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 	// Formulario de postulación (SDD 7.3.4): integración mínima de SRP-013.
 	// El JWT se aplica por grupo con prefijo propio, así que las rutas inexistentes
 	// bajo /postulaciones responden 404 y no 401.
-	// TODO(backend: SRP-005): cargo + elegibilidad, documentos, guardar y enviar.
+	// TODO(backend: SRP-017): documentos (#40) y envío (#43).
 	// -----------------------------------------------------------------
 	if cfg.PostulacionHandler != nil && cfg.AuthService != nil {
 		h := cfg.PostulacionHandler
@@ -101,5 +102,10 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 		postulaciones.Put("/:id/publicaciones", h.GuardarSeccion("publicaciones"))
 		postulaciones.Put("/:id/capacitaciones", h.GuardarSeccion("capacitacion"))
 		postulaciones.Put("/:id/inhabilidades", h.GuardarSeccion("inhabilidades"))
+
+		// Confirmación del cargo con elegibilidad IESS (SRP-017a, SDD 7.5.4).
+		if cfg.CargoHandler != nil {
+			postulaciones.Put("/:id/cargo", cfg.CargoHandler.Confirmar)
+		}
 	}
 }
