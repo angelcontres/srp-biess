@@ -19,6 +19,7 @@ import (
 	"srp-biess/internal/infrastructure/cache"
 	"srp-biess/internal/infrastructure/database"
 	"srp-biess/internal/infrastructure/external"
+	"srp-biess/internal/infrastructure/pdf"
 	"srp-biess/internal/infrastructure/security"
 	"srp-biess/internal/infrastructure/storage"
 	interfacesHTTP "srp-biess/internal/interfaces/http"
@@ -78,8 +79,8 @@ func main() {
 		documentoRepo = database.NewPostgresDocumentoRepository(pool)
 		notificacionRepo = database.NewPostgresNotificacionRepository(pool)
 		txManager = database.NewPgxTxManager(pool)
-		postulacionService = application.NewPostulacionService(txManager, postulacionRepo, documentoRepo, notificacionRepo)
-		_ = postulacionService
+		postulacionService = application.NewPostulacionService(txManager, postulacionRepo, documentoRepo, notificacionRepo).
+			WithNormalizador(database.NewPostgresNormalizador(pool))
 		formularioPg := database.NewPostgresFormularioRepository(pool)
 		formularioRepo = formularioPg
 		cargoRepo = formularioPg // SRP-017a: confirmación del cargo
@@ -122,6 +123,12 @@ func main() {
 		}
 		documentoService = application.NewDocumentoService(txManager, cargaDocumentoRepo, almacen,
 			security.NewFirmadorHMAC(secretoDescarga()), auditoriaRepo, limitesDocumento, vigenciaDescarga())
+		// SRP-017c: el envío genera y guarda el formulario PDF real y notifica al correo registrado.
+		if lector, ok := formularioRepo.(application.LectorFormulario); ok && postulacionService != nil {
+			postulacionService.WithFormularioPDF(postulanteRepo, lector, pdf.NewGeneradorGopdf(), almacen).
+				WithCatalogo(catalogoRepo).
+				WithAuditoria(auditoriaRepo)
+		}
 	}
 	// Sin PostgreSQL el handler recibe nil y responde 503 (no se invoca un repositorio nulo).
 	var catalogoService *application.CatalogoService
@@ -135,7 +142,7 @@ func main() {
 	healthHandler := handlers.NewHealthHandler()
 	authHandler := handlers.NewAuthHandler(authService)
 	eligibilityHandler := handlers.NewEligibilityHandler(eligibilityService)
-	postulacionHandler := handlers.NewPostulacionHandler(formularioService)
+	postulacionHandler := handlers.NewPostulacionHandler(formularioService, postulacionService)
 	cargoHandler := handlers.NewCargoHandler(cargoService)
 	documentoHandler := handlers.NewDocumentoHandler(documentoService)
 	catalogoHandler := handlers.NewCatalogoHandler(catalogoService)

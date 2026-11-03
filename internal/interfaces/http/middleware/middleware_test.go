@@ -103,7 +103,7 @@ func TestMiddlewares(t *testing.T) {
 		if got := resp.Header.Get("Access-Control-Allow-Methods"); got != "GET,POST,PUT,PATCH,DELETE,OPTIONS" {
 			t.Errorf("métodos permitidos = %q", got)
 		}
-		if got := resp.Header.Get("Access-Control-Allow-Headers"); got != "Origin,Content-Type,Accept,Authorization,X-Request-ID" {
+		if got := resp.Header.Get("Access-Control-Allow-Headers"); got != "Origin,Content-Type,Accept,Authorization,Idempotency-Key,X-Request-ID" {
 			t.Errorf("cabeceras permitidas = %q", got)
 		}
 	})

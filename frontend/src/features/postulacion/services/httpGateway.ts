@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { api } from '@/services/api/client';
 import { dmyToIso, isoToDmy } from '../utils/fechas';
+import { CONSENTIMIENTOS, VERSION_TERMINOS } from '../constants';
 import type { PostulacionGateway } from './gateway';
 import type { DatosVerificados, OpcionPais, PostulacionEstado, SeccionEditable } from '../types';
 
@@ -151,10 +152,28 @@ export const httpGateway: PostulacionGateway = {
     return data as Blob;
   },
 
+  async descargarFormulario(id) {
+    // Stable URL (an idempotent replay may come days later); the JWT is required, so it is a Blob.
+    const { data } = await api.get(`/postulaciones/${id}/pdf`, { responseType: 'blob' });
+    return data as Blob;
+  },
+
+  async historial(id) {
+    return unwrap((await api.get(`/postulaciones/${id}/historial`)).data);
+  },
+
   async enviar(id, version) {
+    const consentimiento = { aceptaConsentimiento: true, versionTerminos: VERSION_TERMINOS };
+    // SDD 7.5.6 / 10.11: BORRADOR -> LISTA_PARA_ENVIO first (422 POS_INCOMPLETA lists what is
+    // missing); repeating it on an application already LISTA_PARA_ENVIO is idempotent.
+    // The accepted texts are stored (consentimiento.textos_aceptados) and printed in the PDF.
+    await api.post(`/postulaciones/${id}/guardar`, {
+      ...consentimiento,
+      consentimientos: CONSENTIMIENTOS.map(({ texto }) => texto),
+    });
     const { data } = await api.post(
       `/postulaciones/${id}/enviar`,
-      { aceptaConsentimiento: true, versionTerminos: '[PENDIENTE: versión de términos]', version },
+      { ...consentimiento, version },
       { headers: { 'Idempotency-Key': `${id}-${version}` } },
     );
     return unwrap(data);

@@ -14,7 +14,7 @@ const defaultDevelopmentOrigins = "http://localhost:3000, http://127.0.0.1:3000,
 func NewCORS() fiber.Handler {
 	config := cors.Config{
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Request-ID",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,Idempotency-Key,X-Request-ID",
 		ExposeHeaders:    "Retry-After, X-Request-ID",
 		AllowCredentials: true,
 	}

@@ -121,12 +121,16 @@ func (r *PostgresPostulanteRepository) GetByEmail(ctx context.Context, email str
 	return &p, nil
 }
 
+// Save guarda también los datos del Registro Civil (género, fecha de nacimiento, nacionalidad y
+// estado civil). Sin ellos, los datos verificados y el formulario PDF quedan incompletos.
 func (r *PostgresPostulanteRepository) Save(ctx context.Context, p *domain.Postulante) error {
 	query := `
 		INSERT INTO postulante (
-			cedula, nombres, apellidos, nacionalidad, correo, password_hash, estado, created_at, updated_at
+			cedula, nombres, apellidos, nacionalidad, correo, password_hash, estado,
+			genero, fecha_nacimiento, estado_civil, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, 'ECUATORIANA', $4, $5, 'ACTIVO', now(), now()
+			$1, $2, $3, COALESCE(NULLIF($6, ''), 'ECUATORIANA'), $4, $5, 'ACTIVO',
+			NULLIF($7, '')::genero, $8::date, NULLIF($9, '')::estado_civil, now(), now()
 		) RETURNING id, created_at, updated_at`
 
 	return r.getQuerier(ctx).QueryRow(ctx, query,
@@ -135,6 +139,10 @@ func (r *PostgresPostulanteRepository) Save(ctx context.Context, p *domain.Postu
 		p.Apellidos,
 		p.Email,
 		p.PasswordHash,
+		p.Nacionalidad,
+		p.Genero,
+		p.FechaNacimiento,
+		p.EstadoCivil,
 	).Scan(&p.ID, &p.CreatedAt, &p.UpdatedAt)
 }
 

@@ -45,13 +45,16 @@ type Elegibilidad struct {
 
 // EstadoFormulario es el estado de la postulación que consume la SPA.
 type EstadoFormulario struct {
-	ID                 string                   `json:"id"`
-	Estado             string                   `json:"estado"`
-	Version            int                      `json:"version"`
-	Secciones          map[string]EstadoSeccion `json:"secciones"`
-	UltimoGuardado     *time.Time               `json:"ultimoGuardado"`
-	Elegibilidad       *Elegibilidad            `json:"elegibilidad"`
-	SeccionReanudacion string                   `json:"seccionReanudacion"`
+	ID             string                   `json:"id"`
+	Estado         string                   `json:"estado"`
+	Version        int                      `json:"version"`
+	Secciones      map[string]EstadoSeccion `json:"secciones"`
+	UltimoGuardado *time.Time               `json:"ultimoGuardado"`
+	Elegibilidad   *Elegibilidad            `json:"elegibilidad"`
+	// Código único y fecha de envío (SDD 8.5.10): vacíos mientras no se envíe.
+	CodigoUnico        string     `json:"codigoUnico,omitempty"`
+	FechaEnvio         *time.Time `json:"fechaEnvio"`
+	SeccionReanudacion string     `json:"seccionReanudacion"`
 }
 
 // DatosVerificados son los datos de identidad del postulante, de solo lectura (RF-EF12-03).
@@ -87,4 +90,10 @@ type FormularioRepository interface {
 	CrearBorrador(ctx context.Context, postulanteID string) (*EstadoFormulario, error)
 	ObtenerDetalle(ctx context.Context, id, postulanteID string) (*DetalleFormulario, error)
 	GuardarSeccion(ctx context.Context, id, postulanteID, seccion string, datos []byte, completa bool, version int) (*EstadoFormulario, error)
+}
+
+// EventoEstado es una entrada del historial de estados de la postulación (SDD 8.5.10).
+type EventoEstado struct {
+	Estado string    `json:"estado"`
+	Fecha  time.Time `json:"fecha"`
 }

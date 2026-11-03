@@ -167,8 +167,31 @@ export const INHABILIDADES: InhabilidadPregunta[] = [
 
 /** SDD 8.5.8: five consents. Texts are pending legal review (SDD 8.12 #2). */
 export const CONSENTIMIENTOS = (
-  ['consentimiento1', 'consentimiento2', 'consentimiento3', 'consentimiento4', 'consentimiento5'] as const
-).map((id, index) => ({ id, texto: `[PENDIENTE: texto jurídico del consentimiento ${index + 1}]` }));
+  ["Autorizo de manera libre y voluntaria, emitiendo consentimiento explícito al Instituto Ecuatoriano de Seguridad Social, para el uso de mis datos personales dentro del concurso de méritos y oposición para la selección de los Miembros Principales y Alterno del Directorio del Banco del Instituto Ecuatoriano de Seguridad Social (BIESS), en Representación de los Afiliados, Jubilados y Empleadores, de conformidad con lo prescrito en el artículo 7 de la Ley Orgánica de Protección de Datos Personales.",
+
+    "Declaro que la información del presente formulario y documentación adjunta corresponde a la verdad y autorizo al Instituto Ecuatoriano de Seguridad Social para que se compruebe ante cualquier organismo público o privado su veracidad.",
+
+    "Acepto expresamente cumplir con las normas aplicables al concurso de méritos y oposición para la selección de los Miembros Principales y Alternos del Directorio del Banco del Instituto Ecuatoriano de Seguridad Social (BIESS), en Representación de los Afiliados, Jubilados y Empleadores; así como las resoluciones y disposiciones impartidas por el Instituto Ecuatoriano de Seguridad Social. En caso de incumplimiento de requisitos o encontrarme inmerso/a en las prohibiciones o inhabilidades acepto mi descalificación del proceso.",
+
+    "Acepto que mi nombre como postulante al concurso de méritos y oposición para la selección de los Miembros Principales y Alternos del Directorio del Banco del Instituto Ecuatoriano de Seguridad Social (BIESS), en Representación de los Afiliados, Jubilados y Empleadores; sea publicado en la página web del IESS - BIESS.",
+
+    "El presente formulario, debe ser impreso y con firma manuscrita, entregado junto con los requisitos solicitados, en el lugar, fecha y horario establecido por el Instituto Ecuatoriano de Seguridad Social."
+  ] as const
+).map((texto, index) => ({
+  // Typed as the schema keys (consentimiento1..5) so form.register() and errors accept them.
+  id: `consentimiento${index + 1}` as ConsentimientoId,
+  texto,
+}));
+
+/** Keys of `resumenSchema`: one per consent, in order. */
+export type ConsentimientoId = `consentimiento${1 | 2 | 3 | 4}`;
 
 /** ISO 3166-1 alpha-2 code used to recognize Ecuador in the country catalog. */
 export const ECUADOR_ISO = 'EC';
+
+/**
+ * Version of the accepted terms sent with /guardar and /enviar. The real version and texts are [V]
+ * (SDD 8.5.8); until then a short identifier is stored: the column is varchar(20).
+ * TODO: replace with the version approved by the institution.
+ */
+export const VERSION_TERMINOS = 'PENDIENTE';

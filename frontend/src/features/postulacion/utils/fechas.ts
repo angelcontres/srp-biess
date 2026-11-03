@@ -43,3 +43,14 @@ export function fechaLegible(dmy: string): string {
   const iso = dmyToIso(dmy);
   return iso ? formatIsoDate(iso) : dmy;
 }
+
+/**
+ * ISO date `anios` years before `iso` (yyyy-mm-dd). 29 Feb falls back to 28 Feb when the
+ * target year is not a leap year.
+ */
+export function restarAnios(iso: string, anios: number): string {
+  const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
+  const anio = y - anios;
+  const dia = Math.min(d, daysInMonth(anio, m));
+  return `${String(anio).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+}
