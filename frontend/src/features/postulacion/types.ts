@@ -39,6 +39,15 @@ export interface PostulacionEstado {
   ultimoGuardado: string | null;
   elegibilidad: Elegibilidad | null;
   seccionReanudacion: SeccionId;
+  /** Unique code and submission date (SDD 8.5.10); absent until it is sent. */
+  codigoUnico?: string;
+  fechaEnvio?: string | null;
+}
+
+/** Entry of the state history (SDD 8.5.10), newest first. */
+export interface EventoHistorial {
+  estado: EstadoPostulacion;
+  fecha: string;
 }
 
 /** Data validated with the Registro Civil (RF-EF12-03). Read-only. */

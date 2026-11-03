@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { Link } from 'react-router-dom';
 import Alert from '@/components/ui/Alert';
 import Badge from '@/components/ui/Badge';
 import type { BadgeVariant } from '@/components/ui/Badge';
@@ -18,7 +19,9 @@ import { aplanarErrores, fieldId } from '../schemas/resolver';
 import type { ErrorResumen } from '../schemas/resolver';
 import type { EnvioResultado, EstadoSeccion, SeccionEditable, ValoresSeccion } from '../types';
 import { filasDeSeccion } from './resumenDatos';
-import { RequiredNote } from '@/components/ui/FieldMessages';
+import { RUTAS } from '@/features/auth/session/routes';
+import { describirErrorEnvio } from '../utils/errorEnvio';
+import type { ErrorEnvio } from '../utils/errorEnvio';
 
 const EDITABLES = SECCIONES.filter((item) => item.id !== 'resumen') as Array<
   (typeof SECCIONES)[number] & { id: SeccionEditable }
@@ -45,7 +48,7 @@ export default function ResumenSection({ onEnviada }: { onEnviada: (resultado: E
   const [intento, setIntento] = useState(0);
   const [confirmando, setConfirmando] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [errorEnvio, setErrorEnvio] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState<ErrorEnvio | null>(null);
   const seguirRevisandoRef = useRef<HTMLButtonElement>(null);
   const cargo = CARGOS.find((item) => item.id === postulacion.elegibilidad?.cargoId);
 
@@ -84,14 +87,14 @@ export default function ResumenSection({ onEnviada }: { onEnviada: (resultado: E
 
   const enviar = async () => {
     setEnviando(true);
-    setErrorEnvio(false);
+    setErrorEnvio(null);
     try {
       const resultado = await gateway.enviar(postulacion.id, postulacion.version);
       setConfirmando(false);
       onEnviada(resultado);
-    } catch {
+    } catch (error) {
       setConfirmando(false);
-      setErrorEnvio(true);
+      setErrorEnvio(describirErrorEnvio(error));
     } finally {
       setEnviando(false);
     }
@@ -102,9 +105,25 @@ export default function ResumenSection({ onEnviada }: { onEnviada: (resultado: E
       <SectionBar seccion="resumen" />
       <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
         {errorEnvio ? (
-          <Alert variant="danger" title="La postulación no fue enviada.">
-            Ocurrió un problema en el sistema. Su información no se perdió. Vuelva a presionar “Enviar postulación”. Si
-            persiste, contacte a soporte.
+          <Alert variant={errorEnvio.variante} title={errorEnvio.titulo}>
+            <p>{errorEnvio.detalle}</p>
+            {errorEnvio.faltantes && errorEnvio.faltantes.length > 0 ? (
+              <ul className="mt-2 list-disc space-y-1 pl-6">
+                {errorEnvio.faltantes.map((faltante) => (
+                  <li key={faltante}>{faltante}</li>
+                ))}
+              </ul>
+            ) : null}
+            {errorEnvio.verMiPostulacion ? (
+              <p className="mt-2">
+                <Link
+                  to={RUTAS.miPostulacion}
+                  className="inline-flex min-h-11 items-center text-primary underline underline-offset-4 hover:text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-dark"
+                >
+                  Ir a Mi postulación
+                </Link>
+              </p>
+            ) : null}
           </Alert>
         ) : null}
 
@@ -170,16 +189,14 @@ export default function ResumenSection({ onEnviada }: { onEnviada: (resultado: E
         >
           <fieldset className="space-y-2">
             <legend className="text-lg font-semibold text-neutral-900">Consentimiento informado</legend>
-            <p className="text-base text-neutral-700">Para enviar su postulación debe aceptar los cinco consentimientos.</p>
-            <RequiredNote />
+            <p className="text-base text-neutral-700">Acepte los cinco consentimientos.</p>
+
             {CONSENTIMIENTOS.map(({ id, texto }) => (
               <CheckboxField
                 key={id}
                 {...form.register(id)}
                 id={fieldId(id)}
-                required
                 label={texto}
-                helperText={<a href="#bases-legales">Leer el texto completo</a>}
                 error={form.formState.errors[id]?.message}
               />
             ))}

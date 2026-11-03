@@ -185,6 +185,23 @@ export const mockGateway: PostulacionGateway = {
     );
   },
 
+  async descargarFormulario() {
+    await esperar(400);
+    return new Blob(['%PDF-1.7\nFormulario simulado.'], { type: 'application/pdf' });
+  },
+
+  async historial() {
+    await esperar(300);
+    const { postulacion } = leer();
+    const ahora = new Date().toISOString();
+    return postulacion.estado === 'BORRADOR'
+      ? [{ estado: 'BORRADOR', fecha: ahora }]
+      : [
+          { estado: postulacion.estado, fecha: ahora },
+          { estado: 'BORRADOR', fecha: ahora },
+        ];
+  },
+
   async enviar() {
     await esperar(1200);
     const state = leer();

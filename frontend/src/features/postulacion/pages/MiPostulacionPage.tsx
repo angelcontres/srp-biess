@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Info, RotateCw } from 'lucide-react';
+import { CircleAlert, Download, Info, RotateCw } from 'lucide-react';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import Skeleton from '@/components/ui/Skeleton';
@@ -9,7 +9,8 @@ import { formatDateTime } from '@/utils/format';
 import { CARGOS } from '../constants';
 import { postulacionGateway } from '../services';
 import type { PostulacionGateway } from '../services';
-import type { EstadoPostulacion, PostulacionEstado } from '../types';
+import type { EstadoPostulacion, EventoHistorial, PostulacionEstado } from '../types';
+import { guardarArchivo } from '../utils/descarga';
 
 /**
  * State labels of the SDD state model (SDD 10.11). Only BORRADOR has a literal text in
@@ -56,6 +57,29 @@ export default function MiPostulacionPage({ gateway = postulacionGateway }: MiPo
   const [errorCarga, setErrorCarga] = useState(false);
   const [mostrarSkeleton, setMostrarSkeleton] = useState(false);
 
+  const [descargando, setDescargando] = useState(false);
+  const [errorDescarga, setErrorDescarga] = useState(false);
+  // null: loading; 'error': could not be loaded.
+  const [historial, setHistorial] = useState<EventoHistorial[] | 'error' | null>(null);
+
+  // This page is its own route (outside PostulacionContext): it uses the `gateway` prop.
+  // The PDF requires the JWT (SDD 7.5.8), so it is fetched through the API client, not an <a href>.
+  const descargar = async () => {
+    if (!postulacion) return;
+    setErrorDescarga(false);
+    setDescargando(true);
+    try {
+      const nombre = postulacion.codigoUnico
+        ? `Postulacion-BIESS-${postulacion.codigoUnico}.pdf`
+        : 'Postulacion-BIESS.pdf';
+      guardarArchivo(await gateway.descargarFormulario(postulacion.id), nombre);
+    } catch {
+      setErrorDescarga(true);
+    } finally {
+      setDescargando(false);
+    }
+  };
+
   useEffect(() => {
     document.title = 'Mi postulación | Postulación BIESS';
   }, []);
@@ -64,7 +88,13 @@ export default function MiPostulacionPage({ gateway = postulacionGateway }: MiPo
     setErrorCarga(false);
     const timer = setTimeout(() => setMostrarSkeleton(true), 1000);
     try {
-      setPostulacion((await gateway.cargar()).postulacion);
+      const { postulacion: actual } = await gateway.cargar();
+      setPostulacion(actual);
+      setHistorial(null);
+      gateway
+        .historial(actual.id)
+        .then(setHistorial)
+        .catch(() => setHistorial('error'));
     } catch {
       setErrorCarga(true);
     } finally {
@@ -126,14 +156,20 @@ export default function MiPostulacionPage({ gateway = postulacionGateway }: MiPo
               <div>
                 <dt className="text-sm text-muted">Código de su postulación</dt>
                 <dd className="text-base text-neutral-900">
-                  {enviada ? '[PENDIENTE: código único (SRP-017, envío #43)]' : 'Se asigna al enviar la postulación.'}
+                  {enviada && postulacion.codigoUnico ? (
+                    <span className="font-semibold tabular-nums">{postulacion.codigoUnico}</span>
+                  ) : (
+                    'Se asigna al enviar la postulación.'
+                  )}
                 </dd>
               </div>
               <div>
                 <dt className="text-sm text-muted">{enviada ? 'Fecha y hora de envío' : 'Último guardado'}</dt>
                 <dd className="text-base tabular-nums text-neutral-900">
                   {enviada
-                    ? '[PENDIENTE: fecha y hora de envío (SRP-017, envío #43)]'
+                    ? postulacion.fechaEnvio
+                      ? `${formatDateTime(postulacion.fechaEnvio)} (hora de Ecuador)`
+                      : 'No disponible.'
                     : postulacion.ultimoGuardado
                       ? `${formatDateTime(postulacion.ultimoGuardado)} (hora de Ecuador)`
                       : 'Todavía no ha guardado información.'}
@@ -174,21 +210,61 @@ export default function MiPostulacionPage({ gateway = postulacionGateway }: MiPo
             <h2 id="historial" className="text-lg font-semibold text-neutral-900">
               Historial de estados
             </h2>
-            <p className="max-w-prose text-base text-neutral-700">
-              [PENDIENTE: historial de estados con fecha y hora, en orden cronológico inverso. Requiere un endpoint del
-              backend.]
-            </p>
+            {historial === null ? (
+              <Skeleton fields={2} label="Cargando el historial" />
+            ) : historial === 'error' ? (
+              <p role="alert" className="flex gap-2 text-base text-neutral-900">
+                <CircleAlert size={20} strokeWidth={2} aria-hidden="true" className="shrink-0 text-danger" />
+                No se pudo cargar el historial. Recargue la página para intentarlo de nuevo.
+              </p>
+            ) : (
+              // SDD 8.5.10: newest first, with date and time.
+              <ol className="divide-y divide-line rounded-lg border border-line-strong bg-surface">
+                {historial.map((evento, index) => (
+                  <li
+                    key={`${evento.estado}-${evento.fecha}-${index}`}
+                    className="flex flex-wrap justify-between gap-2 p-4"
+                  >
+                    <span className="text-base font-semibold text-neutral-900">
+                      {ESTADOS[evento.estado]?.etiqueta ?? evento.estado}
+                    </span>
+                    <time dateTime={evento.fecha} className="text-base tabular-nums text-neutral-700">
+                      {formatDateTime(evento.fecha)} (hora de Ecuador)
+                    </time>
+                  </li>
+                ))}
+              </ol>
+            )}
           </section>
 
           <section aria-labelledby="documentos" className="space-y-4">
             <h2 id="documentos" className="text-lg font-semibold text-neutral-900">
               Formulario y comprobante
             </h2>
-            <p className="max-w-prose text-base text-neutral-700">
-              {enviada
-                ? '[PENDIENTE: descarga del PDF y del comprobante (SRP-017, envío #43)]'
-                : 'El formulario en PDF y el comprobante se generan al enviar la postulación.'}
-            </p>
+            {enviada ? (
+              <div className="space-y-2">
+                <p className="max-w-prose text-base text-neutral-700">Descargue, imprima y firme su formulario.</p>
+                {/* The only primary action once sent (SDD 8.5.10: "Descargar"). */}
+                <Button
+                  onClick={() => void descargar()}
+                  isLoading={descargando}
+                  loadingText="Descargando"
+                  leftIcon={<Download size={20} strokeWidth={2} aria-hidden="true" />}
+                >
+                  Descargar PDF
+                </Button>
+                {errorDescarga ? (
+                  <p role="alert" className="flex gap-2 text-base text-neutral-900">
+                    <CircleAlert size={20} strokeWidth={2} aria-hidden="true" className="shrink-0 text-danger" />
+                    No se pudo descargar el formulario. Reintente.
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="max-w-prose text-base text-neutral-700">
+                El formulario en PDF se genera al enviar la postulación.
+              </p>
+            )}
           </section>
 
           {postulacion.estado !== 'BORRADOR' ? (

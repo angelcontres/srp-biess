@@ -11,6 +11,8 @@ import {
   TELEFONO,
   validarRango,
 } from './comunes';
+import { todayIso } from '@/utils/format';
+import { dmyToIso, isoToDmy, restarAnios } from '../utils/fechas';
 
 /* 1. Información personal (RF-EF12-03/05). Verified data is not part of the form. */
 export const personalSchema = (cedulaPostulante: string) =>
@@ -242,7 +244,20 @@ export const inhabilidadesSchema = z
     if (!values.remocionInstitucion) ctx.addIssue({ code: 'custom', path: ['remocionInstitucion'], message: 'Ingrese la institución.' });
     if (!values.remocionCargo) ctx.addIssue({ code: 'custom', path: ['remocionCargo'], message: 'Ingrese el cargo.' });
     const fin = fecha('Ingrese la fecha de finalización.').safeParse(values.remocionFechaFin);
-    if (!fin.success) ctx.addIssue({ code: 'custom', path: ['remocionFechaFin'], message: fin.error.issues[0]?.message ?? '' });
+    if (!fin.success) {
+      ctx.addIssue({ code: 'custom', path: ['remocionFechaFin'], message: fin.error.issues[0]?.message ?? '' });
+    } else {
+      // The question is about the last 5 years (SRS 7, 1.9.7): an earlier removal contradicts "Sí".
+      const limite = restarAnios(todayIso(), 5);
+      const iso = dmyToIso(values.remocionFechaFin);
+      if (iso && iso < limite) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['remocionFechaFin'],
+          message: `La fecha de finalización debe estar dentro de los últimos 5 años, desde el ${isoToDmy(limite)}. Si la remoción fue anterior, responda “No” a esta pregunta.`,
+        });
+      }
+    }
     if (!values.remocionMotivo) ctx.addIssue({ code: 'custom', path: ['remocionMotivo'], message: 'Ingrese el motivo de la remoción.' });
   });
 export type InhabilidadesValues = z.input<typeof inhabilidadesSchema>;

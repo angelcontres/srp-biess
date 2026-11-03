@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Copy, Download, Info } from 'lucide-react';
+import { CircleAlert, Copy, Download, Info } from 'lucide-react';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import { RUTAS } from '@/features/auth/session/routes';
 import { formatDateTime } from '@/utils/format';
 import { CARGOS } from '../constants';
+import { guardarArchivo } from '../utils/descarga';
 import { usePostulacion } from '../PostulacionContext';
 import type { Elegibilidad, EnvioResultado } from '../types';
 
@@ -70,6 +71,22 @@ export function ElegibilidadView({ elegibilidad }: { elegibilidad: Elegibilidad 
 export function EnviadaView({ resultado, cargoNombre }: { resultado: EnvioResultado; cargoNombre?: string }) {
   const headingRef = usePageHeading('Postulación enviada');
   const [copiado, setCopiado] = useState(false);
+  const { gateway, postulacion } = usePostulacion();
+  const [descargando, setDescargando] = useState(false);
+  const [errorDescarga, setErrorDescarga] = useState(false);
+
+  // The PDF requires the JWT (SDD 7.5.8), so it is fetched through the API client, not an <a href>.
+  const descargar = async () => {
+    setErrorDescarga(false);
+    setDescargando(true);
+    try {
+      guardarArchivo(await gateway.descargarFormulario(postulacion.id), `Postulacion-BIESS-${resultado.codigoUnico}.pdf`);
+    } catch {
+      setErrorDescarga(true);
+    } finally {
+      setDescargando(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6">
@@ -111,13 +128,22 @@ export function EnviadaView({ resultado, cargoNombre }: { resultado: EnvioResult
             </div>
           ) : null}
         </dl>
-        <a
-          href={resultado.pdfUrl}
-          className="inline-flex h-11 items-center gap-2 rounded-md bg-primary px-5 font-semibold text-white no-underline hover:bg-primary-dark hover:text-white"
-        >
-          <Download size={20} strokeWidth={2} aria-hidden="true" />
-          Descargar PDF
-        </a>
+        <div className="space-y-2">
+          <Button
+            onClick={() => void descargar()}
+            isLoading={descargando}
+            loadingText="Descargando"
+            leftIcon={<Download size={20} strokeWidth={2} aria-hidden="true" />}
+          >
+            Descargar PDF
+          </Button>
+          {errorDescarga ? (
+            <p role="alert" className="flex gap-2 text-base text-neutral-900">
+              <CircleAlert size={20} strokeWidth={2} aria-hidden="true" className="shrink-0 text-danger" />
+              No se pudo descargar el formulario. Reintente.
+            </p>
+          ) : null}
+        </div>
       </div>
       <Alert variant="info" title="Descargue, imprima y firme su formulario.">
         [PENDIENTE: plazo y lugar de entrega según las bases del concurso]

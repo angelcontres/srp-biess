@@ -4,6 +4,7 @@ import type {
   DatosVerificados,
   Elegibilidad,
   EnvioResultado,
+  EventoHistorial,
   PostulacionEstado,
   SeccionEditable,
   TipoDocumento,
@@ -48,6 +49,10 @@ export interface PostulacionGateway {
    */
   descargarDocumento(id: string, docId: string): Promise<Blob>;
   enviar(id: string, version: number): Promise<EnvioResultado>;
+  /** GET /postulaciones/{id}/pdf (SDD 7.5.8): the form generated on submission, with the JWT. */
+  descargarFormulario(id: string): Promise<Blob>;
+  /** GET /postulaciones/{id}/historial (SDD 8.5.10): state changes, newest first. */
+  historial(id: string): Promise<EventoHistorial[]>;
   catalogo: CatalogoGeografico;
 }
 
