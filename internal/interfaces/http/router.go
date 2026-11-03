@@ -27,6 +27,7 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 
 	// Grupo API v1
 	v1 := app.Group("/api/v1")
+	v1.Get("/health", cfg.HealthHandler.Check)
 
 	// -----------------------------------------------------------------
 	// Autenticación & Sesión (ADR-006, SDD 07, SRP-003)

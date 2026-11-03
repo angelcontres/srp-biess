@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Dependencias y compilaciones locales
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+bin/
+*.exe
+api.exe
+
+# Archivos de entorno y logs
+.env
+*.log
+docker_status.log
+build_err.log
+vet_err.log
+test_err.log
+test_out.log
+
+# Almacenamiento local temporal
+uploads/
+storage/
+
+# IDE y editores
+.idea/
+.vscode/
+.cursorrules
+.gemini/
+.agents/
