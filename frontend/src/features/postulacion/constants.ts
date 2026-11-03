@@ -170,5 +170,5 @@ export const CONSENTIMIENTOS = (
   ['consentimiento1', 'consentimiento2', 'consentimiento3', 'consentimiento4', 'consentimiento5'] as const
 ).map((id, index) => ({ id, texto: `[PENDIENTE: texto jurídico del consentimiento ${index + 1}]` }));
 
-/** Ecuador id in the `pais` seed (SDD 16.3). */
-export const ECUADOR_PAIS_ID = '1';
+/** ISO 3166-1 alpha-2 code used to recognize Ecuador in the country catalog. */
+export const ECUADOR_ISO = 'EC';

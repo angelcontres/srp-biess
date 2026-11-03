@@ -28,7 +28,16 @@ export default function DomicilioSection() {
   const { verificados } = usePostulacion();
   // Updated by the cascade once the cantons of the selected province are known.
   const hayCantones = useRef(true);
-  const schema = useMemo(() => domicilioSchema(verificados.correo, () => hayCantones.current), [verificados.correo]);
+  const ecuadorId = useRef<string | null>(null);
+  const schema = useMemo(
+    () =>
+      domicilioSchema(
+        verificados.correo,
+        () => hayCantones.current,
+        (paisId) => paisId !== '' && paisId === ecuadorId.current,
+      ),
+    [verificados.correo],
+  );
   const seccion = useSeccionForm('domicilio', schema, INICIALES);
   const { form } = seccion;
 
@@ -43,7 +52,11 @@ export default function DomicilioSection() {
         <h2 id="ubicacion-titulo" className="text-lg font-semibold text-neutral-900">
           Ubicación
         </h2>
-        <UbicacionCascada form={form} onCantonesCargados={(cantidad) => (hayCantones.current = cantidad > 0)} />
+        <UbicacionCascada
+          form={form}
+          onCantonesCargados={(cantidad) => (hayCantones.current = cantidad > 0)}
+          onEcuadorIdentificado={(id) => (ecuadorId.current = id)}
+        />
       </section>
 
       <section aria-labelledby="direccion-titulo" className="space-y-6">

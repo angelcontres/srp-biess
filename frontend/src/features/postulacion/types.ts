@@ -76,8 +76,11 @@ export interface EnvioResultado {
   pdfUrl: string;
 }
 
+/** Country option; `codigo` is ISO 3166-1 alpha-2 (Ecuador is recognized by "EC", not by id). */
+export type OpcionPais = SelectOption & { codigo?: string };
+
 export interface CatalogoGeografico {
-  paises(): Promise<SelectOption[]>;
+  paises(): Promise<OpcionPais[]>;
   provincias(paisId: string): Promise<SelectOption[]>;
   cantones(provinciaId: string): Promise<SelectOption[]>;
 }

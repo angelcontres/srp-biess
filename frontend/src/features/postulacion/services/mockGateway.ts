@@ -36,7 +36,7 @@ const VERIFICADOS: DatosVerificados = {
 
 const SCHEMAS: Record<SeccionEditable, ZodTypeAny> = {
   personal: personalSchema(VERIFICADOS.cedula),
-  domicilio: domicilioSchema(VERIFICADOS.correo),
+  domicilio: domicilioSchema(VERIFICADOS.correo, () => true, (paisId) => paisId === '1'),
   familiares: familiaresSchema,
   cargo: respaldoSchema,
   formacion: formacionSchema,
@@ -196,7 +196,13 @@ export const mockGateway: PostulacionGateway = {
 
 // Seed of SDD 16.3.
 const o = (value: number, label: string): SelectOption => ({ value: String(value), label });
-const PAISES = [o(1, 'Ecuador'), o(2, 'Colombia'), o(3, 'Perú'), o(4, 'Estados Unidos'), o(5, 'España')];
+const PAISES = [
+  { ...o(1, 'Ecuador'), codigo: 'EC' },
+  { ...o(2, 'Colombia'), codigo: 'CO' },
+  { ...o(3, 'Perú'), codigo: 'PE' },
+  { ...o(4, 'Estados Unidos'), codigo: 'US' },
+  { ...o(5, 'España'), codigo: 'ES' },
+];
 const PROVINCIAS = [
   'Azuay', 'Bolívar', 'Cañar', 'Carchi', 'Cotopaxi', 'Chimborazo', 'El Oro', 'Esmeraldas', 'Guayas',
   'Imbabura', 'Loja', 'Los Ríos', 'Manabí', 'Morona Santiago', 'Napo', 'Pastaza', 'Pichincha',

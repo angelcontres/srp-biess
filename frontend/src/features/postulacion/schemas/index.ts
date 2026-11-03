@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ECUADOR_PAIS_ID, ESTADOS_CON_PAREJA, INHABILIDADES } from '../constants';
+import { ESTADOS_CON_PAREJA, INHABILIDADES } from '../constants';
 import {
   documento,
   fecha,
@@ -48,7 +48,12 @@ export type PersonalValues = z.input<ReturnType<typeof personalSchema>>;
  * `requiereCanton` returns false when the selected province has no cantons in the
  * catalog: RF-EF12-07 asks for a notice in that case, not for blocking the save.
  */
-export const domicilioSchema = (correoPrincipal: string, requiereCanton: () => boolean = () => true) =>
+export const domicilioSchema = (
+  correoPrincipal: string,
+  requiereCanton: () => boolean = () => true,
+  /** Ecuador is identified through the catalog (ISO "EC"), not by a fixed id. */
+  esEcuador: (paisId: string) => boolean = () => false,
+) =>
   z
     .object({
       paisId: seleccion('Seleccione el país de residencia.'),
@@ -77,7 +82,7 @@ export const domicilioSchema = (correoPrincipal: string, requiereCanton: () => b
         .refine((value) => value === '' || TELEFONO.test(value), { message: MENSAJE_TELEFONO }),
     })
     .superRefine((values, ctx) => {
-      if (values.paisId === ECUADOR_PAIS_ID) {
+      if (esEcuador(values.paisId)) {
         if (!values.provinciaId) ctx.addIssue({ code: 'custom', path: ['provinciaId'], message: 'Seleccione la provincia.' });
         if (!values.cantonId && requiereCanton()) {
           ctx.addIssue({ code: 'custom', path: ['cantonId'], message: 'Seleccione el cantón.' });

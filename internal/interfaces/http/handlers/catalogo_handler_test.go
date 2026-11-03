@@ -52,11 +52,20 @@ func TestCatalogoHandler_Cascada(t *testing.T) {
 	})
 
 	status, body := llamar(t, app, http.MethodGet, "/api/v1/catalogos/paises", "", nil)
-	if status != http.StatusOK || !contiene(nombres(body), "Ecuador") {
-		t.Fatalf("países inesperados: %d %v", status, body)
+	if status != http.StatusOK {
+		t.Fatalf("países: estado %d", status)
+	}
+	ecuadorID := ""
+	for _, item := range body["data"].([]any) {
+		if m := item.(map[string]any); m["codigo"] == "EC" {
+			ecuadorID, _ = m["id"].(string)
+		}
+	}
+	if ecuadorID == "" {
+		t.Fatalf("Ecuador debe llegar con codigo EC: %v", body)
 	}
 
-	_, body = llamar(t, app, http.MethodGet, "/api/v1/catalogos/paises/1/provincias", "", nil)
+	_, body = llamar(t, app, http.MethodGet, "/api/v1/catalogos/paises/"+ecuadorID+"/provincias", "", nil)
 	if provincias := nombres(body); len(provincias) != 24 || !contiene(provincias, "Pichincha") {
 		t.Fatalf("se esperaban las 24 provincias del Ecuador, obtenido %v", provincias)
 	}
@@ -67,7 +76,7 @@ func TestCatalogoHandler_Cascada(t *testing.T) {
 		t.Fatalf("solo debían llegar cantones de Pichincha, obtenido %v", cantones)
 	}
 
-	_, body = llamar(t, app, http.MethodGet, "/api/v1/catalogos/provincias/2/cantones", "", nil)
+	_, body = llamar(t, app, http.MethodGet, "/api/v1/catalogos/provincias/9999/cantones", "", nil)
 	if data, ok := body["data"].([]any); !ok || len(data) != 0 {
 		t.Fatalf("una provincia sin cantones debe devolver [], obtenido %v", body["data"])
 	}

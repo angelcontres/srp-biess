@@ -260,7 +260,8 @@
   * Handler `internal/interfaces/http/handlers/catalogo_handler.go`, rutas en `router.go` e inyección en `cmd/api/main.go`. Sin PostgreSQL responden 503; con un identificador no numérico, 400.
   * Prueba de integración contra el seed: `go test ./internal/interfaces/http/handlers -run Catalogo -v`.
   * **Pendiente para SRP-007:** caché cache-aside en Redis (TTL 24 h) con fallback a PostgreSQL.
-  * **Pendiente de datos (SRP-004):** el seed solo trae cantones de Azuay, Guayas, Manabí y Pichincha; el seed productivo debe cargar todos los cantones (SDD 16.3).
+  * `GET /catalogos/paises` incluye `codigo` (ISO 3166-1 alfa-2): la SPA reconoce a Ecuador por `EC` y no por su id (en la semilla actual, `id = 52`).
+  * **Semilla (`db/init.sql`):** 194 países, las 24 provincias del Ecuador con códigos INEC y 199 cantones asignados a su provincia. **Pendiente (SRP-004):** el sufijo del código de cantón es secuencial y faltan cantones en algunas provincias (por ejemplo Azuay, Guayas, Loja, Morona Santiago y Santa Elena); el catálogo productivo debe cargarse desde la fuente oficial del INEC.
 
 ---
 

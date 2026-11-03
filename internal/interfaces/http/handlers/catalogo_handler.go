@@ -24,6 +24,8 @@ func NewCatalogoHandler(service *application.CatalogoService) *CatalogoHandler {
 type itemCatalogo struct {
 	ID     string `json:"id"`
 	Nombre string `json:"nombre"`
+	// Codigo es el ISO 3166-1 alfa-2 del país: la SPA reconoce a Ecuador por "EC", no por su id.
+	Codigo string `json:"codigo,omitempty"`
 }
 
 func (h *CatalogoHandler) responder(c *fiber.Ctx, items []itemCatalogo, err error) error {
@@ -61,7 +63,7 @@ func (h *CatalogoHandler) Paises(c *fiber.Ctx) error {
 	paises, err := h.service.ListarPaises(c.Context())
 	items := make([]itemCatalogo, 0, len(paises))
 	for _, p := range paises {
-		items = append(items, itemCatalogo{ID: p.ID, Nombre: p.Nombre})
+		items = append(items, itemCatalogo{ID: p.ID, Nombre: p.Nombre, Codigo: p.Codigo})
 	}
 	return h.responder(c, items, err)
 }

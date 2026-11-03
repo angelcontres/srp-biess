@@ -1,9 +1,8 @@
 import axios from 'axios';
 import { api } from '@/services/api/client';
-import type { SelectOption } from '@/components/ui/SelectField';
 import { dmyToIso, isoToDmy } from '../utils/fechas';
 import type { PostulacionGateway } from './gateway';
-import type { DatosVerificados, PostulacionEstado, SeccionEditable } from '../types';
+import type { DatosVerificados, OpcionPais, PostulacionEstado, SeccionEditable } from '../types';
 
 // Endpoints available (SRP-013 minimal integration): GET /postulaciones/actual,
 // POST /postulaciones, GET /postulaciones/{id} and the section saves of SDD 7.3.4.
@@ -56,11 +55,12 @@ async function obtenerDetalle(id: string): Promise<Detalle> {
   return unwrap<Detalle>((await api.get(`/postulaciones/${id}`)).data);
 }
 
-async function catalogo(path: string): Promise<SelectOption[]> {
+async function catalogo(path: string): Promise<OpcionPais[]> {
   const { data } = await api.get(path);
-  return unwrap<Array<{ id: number | string; nombre: string }>>(data).map((item) => ({
+  return unwrap<Array<{ id: number | string; nombre: string; codigo?: string }>>(data).map((item) => ({
     value: String(item.id),
     label: item.nombre,
+    codigo: item.codigo,
   }));
 }
 

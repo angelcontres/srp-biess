@@ -2,16 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RotateCw } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
 import Button from '@/components/ui/Button';
-import type { SelectOption } from '@/components/ui/SelectField';
-import { ECUADOR_PAIS_ID } from '../constants';
+import { ECUADOR_ISO } from '../constants';
 import { usePostulacion } from '../PostulacionContext';
 import type { DomicilioValues } from '../schemas';
+import type { OpcionPais } from '../types';
 import { Seleccion, Texto } from './campos';
 
-type Estado = { opciones: SelectOption[]; cargando: boolean; error: boolean };
+type Estado = { opciones: OpcionPais[]; cargando: boolean; error: boolean };
 const VACIO: Estado = { opciones: [], cargando: false, error: false };
 
-function useCatalogo(cargar: (() => Promise<SelectOption[]>) | null, alCargar: (opciones: SelectOption[]) => void) {
+function useCatalogo(cargar: (() => Promise<OpcionPais[]>) | null, alCargar: (opciones: OpcionPais[]) => void) {
   const [estado, setEstado] = useState<Estado>(VACIO);
   const ejecutar = useCallback(async () => {
     if (!cargar) {
@@ -66,17 +66,22 @@ export interface UbicacionCascadaProps {
   form: UseFormReturn<DomicilioValues>;
   /** Reports how many cantons the selected province has (0 makes the canton optional). */
   onCantonesCargados?: (cantidad: number) => void;
+  /** Reports the catalog id of Ecuador (ISO "EC") once the countries are loaded. */
+  onEcuadorIdentificado?: (paisId: string | null) => void;
 }
 
-export default function UbicacionCascada({ form, onCantonesCargados }: UbicacionCascadaProps) {
+export default function UbicacionCascada({ form, onCantonesCargados, onEcuadorIdentificado }: UbicacionCascadaProps) {
   const { gateway } = usePostulacion();
   const [anuncio, setAnuncio] = useState('');
   const paisId = form.watch('paisId');
   const provinciaId = form.watch('provinciaId');
-  const esEcuador = paisId === ECUADOR_PAIS_ID;
 
   const resync = (campo: 'paisId' | 'provinciaId' | 'cantonId') => () =>
     window.setTimeout(() => form.setValue(campo, form.getValues(campo)), 0);
+
+  // Children are shown only after the countries load, so the ISO code is always known.
+  const [ecuadorId, setEcuadorId] = useState<string | null>(null);
+  const esEcuador = ecuadorId !== null && paisId === ecuadorId;
 
   const cargarPaises = useMemo(() => () => gateway.catalogo.paises(), [gateway]);
   const cargarProvincias = useMemo(
@@ -87,7 +92,12 @@ export default function UbicacionCascada({ form, onCantonesCargados }: Ubicacion
     () => (esEcuador && provinciaId ? () => gateway.catalogo.cantones(provinciaId) : null),
     [esEcuador, gateway, provinciaId],
   );
-  const paises = useCatalogo(cargarPaises, resync('paisId'));
+  const paises = useCatalogo(cargarPaises, (opciones) => {
+    const id = opciones.find((pais) => pais.codigo === ECUADOR_ISO)?.value ?? null;
+    setEcuadorId(id);
+    onEcuadorIdentificado?.(id);
+    resync('paisId')();
+  });
   const provincias = useCatalogo(cargarProvincias, resync('provinciaId'));
   const cantones = useCatalogo(cargarCantones, (opciones) => {
     onCantonesCargados?.(opciones.length);
@@ -118,7 +128,7 @@ export default function UbicacionCascada({ form, onCantonesCargados }: Ubicacion
         />
       )}
 
-      {paisId && esEcuador ? (
+      {paisId && ecuadorId !== null && esEcuador ? (
         <div className="grid gap-6 sm:grid-cols-2">
           {provincias.error ? (
             <ErrorCatalogo onReintentar={() => void provincias.reintentar()} />
@@ -163,7 +173,7 @@ export default function UbicacionCascada({ form, onCantonesCargados }: Ubicacion
         </div>
       ) : null}
 
-      {paisId && !esEcuador ? (
+      {paisId && !paises.cargando && !paises.error && !esEcuador ? (
         <div className="grid gap-6 sm:grid-cols-2">
           <Texto form={form} name="provinciaManual" label="Provincia o estado" required autoComplete="address-level1" />
           <Texto form={form} name="ciudadManual" label="Ciudad" required autoComplete="address-level2" />
