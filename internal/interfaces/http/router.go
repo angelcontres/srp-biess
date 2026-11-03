@@ -73,8 +73,7 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 	}
 
 	// -----------------------------------------------------------------
-	// Formulario de postulación (SDD 7.3.4): integración mínima de SRP-013.
-	// TODO(backend: SRP-017): documentos (#40) y envío (#43).
+	// Formulario de postulación (SDD 7.3.4): integración de SRP-013 y SRP-017c.
 	// -----------------------------------------------------------------
 	if cfg.PostulacionHandler != nil && cfg.AuthService != nil {
 		h := cfg.PostulacionHandler
@@ -93,6 +92,7 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 		postulaciones.Put("/:id/publicaciones", h.GuardarSeccion("publicaciones"))
 		postulaciones.Put("/:id/capacitaciones", h.GuardarSeccion("capacitacion"))
 		postulaciones.Put("/:id/inhabilidades", h.GuardarSeccion("inhabilidades"))
+		postulaciones.Post("/:id/enviar", h.Enviar)
 
 		// Confirmación del cargo con elegibilidad IESS (SRP-017a, SDD 7.5.4).
 		if cfg.CargoHandler != nil {

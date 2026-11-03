@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -15,10 +16,15 @@ import (
 // PostulacionHandler expone la integración mínima del formulario (SRP-013, SDD 7.3.4).
 type PostulacionHandler struct {
 	service *application.FormularioService
+	submit  *application.PostulacionService
 }
 
-func NewPostulacionHandler(service *application.FormularioService) *PostulacionHandler {
-	return &PostulacionHandler{service: service}
+func NewPostulacionHandler(service *application.FormularioService, submit ...*application.PostulacionService) *PostulacionHandler {
+	handler := &PostulacionHandler{service: service}
+	if len(submit) > 0 {
+		handler.submit = submit[0]
+	}
+	return handler
 }
 
 func fallo(c *fiber.Ctx, status int, code, mensaje string) error {
@@ -48,6 +54,16 @@ func responderError(c *fiber.Ctx, err error) error {
 		return fallo(c, fiber.StatusBadRequest, "VALIDATION_ERROR", "Debe confirmar la selección del cargo.")
 	case errors.Is(err, domain.ErrCargoYaConfirmado):
 		return fallo(c, fiber.StatusConflict, "POS_CARGO_CONFIRMADO", "El cargo de esta postulación ya fue confirmado.")
+	case errors.Is(err, application.ErrIdempotencyKeyRequerida):
+		return fallo(c, fiber.StatusBadRequest, "IDEMPOTENCY_KEY_REQUERIDA", "La cabecera Idempotency-Key es obligatoria.")
+	case errors.Is(err, application.ErrIdempotencyKeyConflicto):
+		return fallo(c, fiber.StatusConflict, "IDEMPOTENCY_KEY_CONFLICTO", "La cabecera Idempotency-Key ya fue utilizada para otra postulación.")
+	case errors.Is(err, application.ErrConsentimientoRequerido):
+		return fallo(c, fiber.StatusBadRequest, "CONSENTIMIENTO_REQUERIDO", "Debe aceptar el consentimiento vigente para enviar la postulación.")
+	case errors.Is(err, application.ErrPostulacionYaEnviada):
+		return fallo(c, fiber.StatusConflict, "POS_YA_ENVIADA", "La postulación ya fue enviada.")
+	case errors.Is(err, application.ErrPostulacionInvalida):
+		return fallo(c, fiber.StatusConflict, "POS_NO_LISTA_PARA_ENVIO", "La postulación no está lista para ser enviada.")
 	case errors.Is(err, domain.ErrExternalUnavailable):
 		return fallo(c, fiber.StatusServiceUnavailable, "INTEGRACION_NO_DISPONIBLE", "No es posible validar su calidad laboral en este momento.")
 	case errors.Is(err, application.ErrPersistenciaNoDisponible):
@@ -55,6 +71,52 @@ func responderError(c *fiber.Ctx, err error) error {
 	default:
 		return fallo(c, fiber.StatusInternalServerError, "ERROR_INTERNO", "Ocurrió un problema en el sistema.")
 	}
+}
+
+// Enviar implementa POST /postulaciones/:id/enviar con idempotencia transaccional.
+func (h *PostulacionHandler) Enviar(c *fiber.Ctx) error {
+	if h.submit == nil {
+		return responderError(c, application.ErrPersistenciaNoDisponible)
+	}
+	key := strings.TrimSpace(c.Get("Idempotency-Key"))
+	var req struct {
+		AceptaConsentimiento bool   `json:"aceptaConsentimiento"`
+		VersionTerminos      string `json:"versionTerminos"`
+		Version              int    `json:"version"`
+		Email                string `json:"email"`
+	}
+	if len(c.Body()) > 0 {
+		if err := json.Unmarshal(c.Body(), &req); err != nil {
+			return fallo(c, fiber.StatusBadRequest, "VALIDATION_ERROR", "Cuerpo de petición inválido.")
+		}
+	}
+	if key == "" || !req.AceptaConsentimiento || strings.TrimSpace(req.VersionTerminos) == "" {
+		if key == "" {
+			return responderError(c, application.ErrIdempotencyKeyRequerida)
+		}
+		return responderError(c, application.ErrConsentimientoRequerido)
+	}
+	claims := middleware.GetUserClaims(c)
+	email := req.Email
+	if email == "" && claims != nil {
+		email = claims.Email
+	}
+	result, err := h.submit.EnviarPostulacion(c.Context(), application.EnviarPostulacionRequest{
+		PostulacionID:        c.Params("id"),
+		Email:                email,
+		AceptaConsentimiento: req.AceptaConsentimiento,
+		VersionTerminos:      strings.TrimSpace(req.VersionTerminos),
+		IdempotencyKey:       key,
+	})
+	if err != nil {
+		return responderError(c, err)
+	}
+	return c.JSON(dto.Success(fiber.Map{
+		"codigoUnico": result.CodigoUnico,
+		"estado":      result.Estado,
+		"fechaEnvio":  result.FechaEnvio,
+		"pdfUrl":      result.PDFURL,
+	}))
 }
 
 func postulanteID(c *fiber.Ctx) string {

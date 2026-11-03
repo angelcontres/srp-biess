@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -12,12 +13,18 @@ import (
 var (
 	ErrPostulacionNoEncontrada = errors.New("postulación no encontrada")
 	ErrPostulacionYaEnviada    = errors.New("la postulación ya ha sido enviada previamente")
-	ErrPostulacionInvalida     = errors.New("la postulación no está en estado borrador para su envío")
+	ErrPostulacionInvalida     = errors.New("la postulación no está lista para su envío")
+	ErrIdempotencyKeyRequerida = errors.New("Idempotency-Key es requerido")
+	ErrIdempotencyKeyConflicto = errors.New("Idempotency-Key ya pertenece a otra postulación")
+	ErrConsentimientoRequerido = errors.New("el consentimiento es requerido para enviar")
 )
 
 type EnviarPostulacionRequest struct {
-	PostulacionID string `json:"postulacion_id"`
-	Email         string `json:"email"`
+	PostulacionID        string `json:"postulacion_id"`
+	Email                string `json:"email"`
+	AceptaConsentimiento bool   `json:"aceptaConsentimiento"`
+	VersionTerminos      string `json:"versionTerminos"`
+	IdempotencyKey       string `json:"-"`
 }
 
 type EnviarPostulacionResult struct {
@@ -27,6 +34,7 @@ type EnviarPostulacionResult struct {
 	FechaEnvio     time.Time `json:"fecha_envio"`
 	DocumentoID    string    `json:"documento_id"`
 	NotificacionID string    `json:"notificacion_id"`
+	PDFURL         string    `json:"pdf_url"`
 }
 
 // PostulacionService orquesta el ciclo de vida y envío de la postulación (ADR-004, SDD 10.9).
@@ -35,6 +43,13 @@ type PostulacionService struct {
 	postulacionRepo  domain.PostulacionRepository
 	documentoRepo    domain.DocumentoRepository
 	notificacionRepo domain.NotificacionRepository
+	normalizador     domain.NormalizadorPostulacion
+}
+
+// WithNormalizador configura el volcado JSONB -> tablas dentro de la misma transacción.
+func (s *PostulacionService) WithNormalizador(normalizador domain.NormalizadorPostulacion) *PostulacionService {
+	s.normalizador = normalizador
+	return s
 }
 
 func NewPostulacionService(
@@ -57,33 +72,67 @@ func (s *PostulacionService) EnviarPostulacion(ctx context.Context, req EnviarPo
 	if req.PostulacionID == "" {
 		return nil, errors.New("el ID de postulación es requerido")
 	}
+	if req.IdempotencyKey == "" {
+		return nil, ErrIdempotencyKeyRequerida
+	}
+	if !req.AceptaConsentimiento {
+		return nil, ErrConsentimientoRequerido
+	}
 
 	var result EnviarPostulacionResult
 
 	err := s.txManager.WithTransaction(ctx, func(txCtx context.Context) error {
-		// 1. Validar existencia y estado actual de la postulación
-		p, err := s.postulacionRepo.GetByID(txCtx, req.PostulacionID)
+		// La fila queda bloqueada antes de validar el estado y generar el código.
+		// Esto serializa envíos concurrentes para la misma postulación.
+		record, err := s.postulacionRepo.GetIdempotentSubmission(txCtx, req.IdempotencyKey)
+		if err == nil {
+			if record.PostulacionID != req.PostulacionID {
+				return ErrIdempotencyKeyConflicto
+			}
+			return json.Unmarshal(record.Response, &result)
+		}
+		if !errors.Is(err, domain.ErrNotFound) {
+			return fmt.Errorf("error consultando idempotencia de envío: %w", err)
+		}
+
+		p, err := s.postulacionRepo.GetByIDForUpdate(txCtx, req.PostulacionID)
 		if err != nil {
 			if errors.Is(err, domain.ErrNotFound) {
 				return ErrPostulacionNoEncontrada
 			}
 			return fmt.Errorf("error al consultar postulación: %w", err)
 		}
+		// El primer lookup puede haber ocurrido mientras otro envío insertaba la
+		// llave. Tras adquirir el lock de la postulación se vuelve a consultar.
+		if record, lookupErr := s.postulacionRepo.GetIdempotentSubmission(txCtx, req.IdempotencyKey); lookupErr == nil {
+			if record.PostulacionID != req.PostulacionID {
+				return ErrIdempotencyKeyConflicto
+			}
+			return json.Unmarshal(record.Response, &result)
+		} else if !errors.Is(lookupErr, domain.ErrNotFound) {
+			return fmt.Errorf("error reconsultando idempotencia de envío: %w", lookupErr)
+		}
 		if p.Estado == domain.EstadoEnviada {
 			return ErrPostulacionYaEnviada
 		}
-		if p.Estado != domain.EstadoBorrador && p.Estado != domain.EstadoListaParaEnvio {
+		if p.Estado != domain.EstadoListaParaEnvio {
 			return ErrPostulacionInvalida
 		}
 
-		// 2. Generar código correlativo único institucional desde la secuencia de PostgreSQL (ADR-004, SDD 10.9)
+		if s.normalizador != nil {
+			if err := s.normalizador.Normalizar(txCtx, p.ID); err != nil {
+				return fmt.Errorf("error normalizando datos de postulación: %w", err)
+			}
+		}
+
+		// Generar código correlativo único institucional desde la secuencia de PostgreSQL.
 		now := time.Now()
 		codigoUnico, err := s.postulacionRepo.NextCodigoUnico(txCtx)
 		if err != nil {
 			return fmt.Errorf("error al generar código correlativo único: %w", err)
 		}
 
-		// 3. Actualizar estado y fecha en postulacion de forma atómica y optimista (previene envíos duplicados concurrentes)
+		// Actualizar estado y fecha en postulacion dentro de la transacción.
 		if err := s.postulacionRepo.UpdateSubmit(txCtx, p.ID, codigoUnico, now); err != nil {
 			if errors.Is(err, domain.ErrPostulacionYaEnviada) {
 				return ErrPostulacionYaEnviada
@@ -91,7 +140,7 @@ func (s *PostulacionService) EnviarPostulacion(ctx context.Context, req EnviarPo
 			return fmt.Errorf("error al actualizar estado de postulación: %w", err)
 		}
 
-		// 4. Crear y registrar documento resumen de postulación (PDF)
+		// Registrar documento resumen de postulación (PDF).
 		doc := &domain.Documento{
 			PostulanteID:     p.PostulanteID,
 			PostulacionID:    p.ID,
@@ -108,7 +157,15 @@ func (s *PostulacionService) EnviarPostulacion(ctx context.Context, req EnviarPo
 			return fmt.Errorf("error al registrar documento de formulario: %w", err)
 		}
 
-		// 5. Encolar notificación en Outbox
+		// Persistir consentimiento y encolar notificación en Outbox.
+		consentVersion := req.VersionTerminos
+		if consentVersion == "" {
+			consentVersion = "legacy"
+		}
+		if err := s.postulacionRepo.SaveConsentimiento(txCtx, p.ID, consentVersion); err != nil {
+			return fmt.Errorf("error al registrar consentimiento: %w", err)
+		}
+
 		emailDestino := req.Email
 		if emailDestino == "" {
 			emailDestino = "postulante@biess.gob.ec"
@@ -138,9 +195,14 @@ func (s *PostulacionService) EnviarPostulacion(ctx context.Context, req EnviarPo
 			FechaEnvio:     now,
 			DocumentoID:    doc.ID,
 			NotificacionID: notif.ID,
+			PDFURL:         doc.Ruta,
 		}
 
-		return nil
+		payload, err := json.Marshal(result)
+		if err != nil {
+			return fmt.Errorf("error serializando respuesta idempotente: %w", err)
+		}
+		return s.postulacionRepo.SaveIdempotentSubmission(txCtx, req.IdempotencyKey, p.ID, payload)
 	})
 
 	if err != nil {

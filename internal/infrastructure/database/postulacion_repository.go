@@ -31,10 +31,21 @@ func (r *PostgresPostulacionRepository) getQuerier(ctx context.Context) Querier 
 }
 
 func (r *PostgresPostulacionRepository) GetByID(ctx context.Context, id string) (*domain.Postulacion, error) {
+	return r.getByID(ctx, id, false)
+}
+
+func (r *PostgresPostulacionRepository) GetByIDForUpdate(ctx context.Context, id string) (*domain.Postulacion, error) {
+	return r.getByID(ctx, id, true)
+}
+
+func (r *PostgresPostulacionRepository) getByID(ctx context.Context, id string, forUpdate bool) (*domain.Postulacion, error) {
 	query := `
 		SELECT id, COALESCE(codigo_unico, ''), postulante_id, COALESCE(cargo_id, 0), estado, fecha_envio, created_at, updated_at
 		FROM postulacion
 		WHERE id = $1::uuid`
+	if forUpdate {
+		query += " FOR UPDATE"
+	}
 
 	var p domain.Postulacion
 	var cargoID int
@@ -191,4 +202,46 @@ func (r *PostgresPostulacionRepository) NextCodigoUnico(ctx context.Context) (st
 	}
 	year := time.Now().Year()
 	return fmt.Sprintf("BIESS-%d-%05d", year, seqVal), nil
+}
+
+func (r *PostgresPostulacionRepository) GetIdempotentSubmission(ctx context.Context, key string) (*domain.IdempotentSubmission, error) {
+	var record domain.IdempotentSubmission
+	var response []byte
+	err := r.getQuerier(ctx).QueryRow(ctx, `
+		SELECT idempotency_key, postulacion_id::text, response
+		FROM postulacion_envio_idempotencia
+		WHERE idempotency_key = $1
+		FOR UPDATE`, key).Scan(&record.Key, &record.PostulacionID, &response)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error consultando idempotencia: %w", err)
+	}
+	record.Response = response
+	return &record, nil
+}
+
+func (r *PostgresPostulacionRepository) SaveIdempotentSubmission(ctx context.Context, key, postulacionID string, response []byte) error {
+	_, err := r.getQuerier(ctx).Exec(ctx, `
+		INSERT INTO postulacion_envio_idempotencia (idempotency_key, postulacion_id, response)
+		VALUES ($1, $2::uuid, $3::jsonb)`, key, postulacionID, string(response))
+	if err != nil {
+		return fmt.Errorf("error guardando idempotencia de envío: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresPostulacionRepository) SaveConsentimiento(ctx context.Context, postulacionID, version string) error {
+	_, err := r.getQuerier(ctx).Exec(ctx, `
+		INSERT INTO consentimiento (postulacion_id, version_terminos, aceptado, textos_aceptados)
+		VALUES ($1::uuid, $2, true, '{}'::jsonb)
+		ON CONFLICT (postulacion_id) DO UPDATE
+		SET version_terminos = EXCLUDED.version_terminos,
+		    aceptado = EXCLUDED.aceptado,
+		    fecha_aceptacion = now()`, postulacionID, version)
+	if err != nil {
+		return fmt.Errorf("error guardando consentimiento: %w", err)
+	}
+	return nil
 }

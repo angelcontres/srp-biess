@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,6 +38,10 @@ func TestTxManager_CommitAndRollback(t *testing.T) {
 		t.Skip(err)
 	}
 	defer pool.Close()
+	aplicarMigraciones(ctx, t, func(ctx context.Context, sql string) error {
+		_, err := pool.Exec(ctx, sql)
+		return err
+	})
 
 	txManager := database.NewPgxTxManager(pool)
 	postulanteRepo := database.NewPostgresPostulanteRepository(pool)
@@ -154,6 +159,10 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		t.Skip(err)
 	}
 	defer pool.Close()
+	aplicarMigraciones(ctx, t, func(ctx context.Context, sql string) error {
+		_, err := pool.Exec(ctx, sql)
+		return err
+	})
 
 	txManager := database.NewPgxTxManager(pool)
 	postulanteRepo := database.NewPostgresPostulanteRepository(pool)
@@ -180,7 +189,7 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		postulacion := &domain.Postulacion{
 			PostulanteID: postulante.ID,
 			CargoID:      "1",
-			Estado:       domain.EstadoBorrador,
+			Estado:       domain.EstadoListaParaEnvio,
 		}
 		if err := postulacionRepo.Save(ctx, postulacion); err != nil {
 			t.Fatalf("error guardando postulacion borrador: %v", err)
@@ -188,9 +197,13 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 
 		svc := application.NewPostulacionService(txManager, postulacionRepo, realDocRepo, notifRepo)
 
+		idempotencyKey := fmt.Sprintf("tx-happy-%d", time.Now().UnixNano())
 		res, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
-			PostulacionID: postulacion.ID,
-			Email:         postulante.Email,
+			PostulacionID:        postulacion.ID,
+			Email:                postulante.Email,
+			AceptaConsentimiento: true,
+			VersionTerminos:      "2025.1",
+			IdempotencyKey:       idempotencyKey,
 		})
 		if err != nil {
 			t.Fatalf("error en EnviarPostulacion: %v", err)
@@ -229,6 +242,30 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		if docs[0].Tipo != domain.DocFormularioPostulacion {
 			t.Errorf("tipo doc = %s; want %s", docs[0].Tipo, domain.DocFormularioPostulacion)
 		}
+
+		resRetry, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
+			PostulacionID:        postulacion.ID,
+			Email:                postulante.Email,
+			AceptaConsentimiento: true,
+			VersionTerminos:      "2025.1",
+			IdempotencyKey:       idempotencyKey,
+		})
+		if err != nil {
+			t.Fatalf("reintento idempotente falló: %v", err)
+		}
+		if resRetry.CodigoUnico != res.CodigoUnico {
+			t.Fatalf("reintento devolvió código distinto: %s vs %s", resRetry.CodigoUnico, res.CodigoUnico)
+		}
+		var documentos, notificaciones int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM documento WHERE postulacion_id = $1::uuid`, postulacion.ID).Scan(&documentos); err != nil {
+			t.Fatalf("contando documentos: %v", err)
+		}
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM notificacion WHERE postulacion_id = $1::uuid`, postulacion.ID).Scan(&notificaciones); err != nil {
+			t.Fatalf("contando notificaciones: %v", err)
+		}
+		if documentos != 1 || notificaciones != 1 {
+			t.Fatalf("reintento duplicó efectos: documentos=%d notificaciones=%d", documentos, notificaciones)
+		}
 	})
 
 	t.Run("2. Rollback Forzado: Fallo en inserción de documento deja la base de datos INTACTA", func(t *testing.T) {
@@ -250,7 +287,7 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		postulacion := &domain.Postulacion{
 			PostulanteID: postulante2.ID,
 			CargoID:      "1",
-			Estado:       domain.EstadoBorrador,
+			Estado:       domain.EstadoListaParaEnvio,
 		}
 		if err := postulacionRepo.Save(ctx, postulacion); err != nil {
 			t.Fatalf("error guardando postulacion borrador: %v", err)
@@ -265,8 +302,11 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		svc := application.NewPostulacionService(txManager, postulacionRepo, failingDocRepo, notifRepo)
 
 		_, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
-			PostulacionID: postulacion.ID,
-			Email:         postulante2.Email,
+			PostulacionID:        postulacion.ID,
+			Email:                postulante2.Email,
+			AceptaConsentimiento: true,
+			VersionTerminos:      "2025.1",
+			IdempotencyKey:       fmt.Sprintf("tx-rollback-%d", time.Now().UnixNano()),
 		})
 
 		if err == nil {
@@ -280,8 +320,8 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		}
 
 		// Estado debe continuar en BORRADOR
-		if pDB.Estado != domain.EstadoBorrador {
-			t.Errorf("ESTADO NO DEBIÓ CAMBIAR: estado = %s; want %s", pDB.Estado, domain.EstadoBorrador)
+		if pDB.Estado != domain.EstadoListaParaEnvio {
+			t.Errorf("ESTADO NO DEBIÓ CAMBIAR: estado = %s; want %s", pDB.Estado, domain.EstadoListaParaEnvio)
 		}
 
 		// Código único debe continuar vacío
@@ -320,7 +360,7 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		postulacion3 := &domain.Postulacion{
 			PostulanteID: postulante3.ID,
 			CargoID:      "1",
-			Estado:       domain.EstadoBorrador,
+			Estado:       domain.EstadoListaParaEnvio,
 		}
 		if err := postulacionRepo.Save(ctx, postulacion3); err != nil {
 			t.Fatalf("error guardando postulacion 3: %v", err)
@@ -330,8 +370,11 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 
 		// Primer envío exitoso
 		res1, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
-			PostulacionID: postulacion3.ID,
-			Email:         postulante3.Email,
+			PostulacionID:        postulacion3.ID,
+			Email:                postulante3.Email,
+			AceptaConsentimiento: true,
+			VersionTerminos:      "2025.1",
+			IdempotencyKey:       fmt.Sprintf("tx-duplicate-first-%d", time.Now().UnixNano()),
 		})
 		if err != nil {
 			t.Fatalf("primer envío debió ser exitoso: %v", err)
@@ -342,8 +385,11 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 
 		// Segundo envío concurrente/inmediato debe ser rechazado
 		_, err = svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
-			PostulacionID: postulacion3.ID,
-			Email:         postulante3.Email,
+			PostulacionID:        postulacion3.ID,
+			Email:                postulante3.Email,
+			AceptaConsentimiento: true,
+			VersionTerminos:      "2025.1",
+			IdempotencyKey:       fmt.Sprintf("tx-duplicate-second-%d", time.Now().UnixNano()),
 		})
 		if !errors.Is(err, application.ErrPostulacionYaEnviada) {
 			t.Fatalf("se esperaba ErrPostulacionYaEnviada, obtenido: %v", err)
@@ -376,8 +422,11 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		svc := application.NewPostulacionService(txManager, postulacionRepo, realDocRepo, notifRepo)
 
 		res, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
-			PostulacionID: postulacion4.ID,
-			Email:         postulante4.Email,
+			PostulacionID:        postulacion4.ID,
+			Email:                postulante4.Email,
+			AceptaConsentimiento: true,
+			VersionTerminos:      "2025.1",
+			IdempotencyKey:       fmt.Sprintf("tx-list-path-%d", time.Now().UnixNano()),
 		})
 		if err != nil {
 			t.Fatalf("envío desde LISTA_PARA_ENVIO falló: %v", err)
@@ -388,6 +437,76 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		}
 		if res.CodigoUnico == "" {
 			t.Errorf("se esperaba código único correlativo generado")
+		}
+	})
+
+	t.Run("5. Dos envíos concurrentes con la misma llave producen una respuesta única", func(t *testing.T) {
+		cedula5 := fmt.Sprintf("20%08d", time.Now().UnixNano()%100000000)
+		postulante5 := &domain.Postulante{
+			Cedula:       cedula5,
+			Nombres:      "CONCURRENCIA",
+			Apellidos:    "IDEMPOTENTE",
+			Email:        fmt.Sprintf("postulante_concurrente_%d@biess.gob.ec", time.Now().UnixNano()),
+			PasswordHash: "hash_seguro",
+		}
+		if err := postulanteRepo.Save(ctx, postulante5); err != nil {
+			t.Fatalf("error creando postulante concurrente: %v", err)
+		}
+		postulacion5 := &domain.Postulacion{
+			PostulanteID: postulante5.ID,
+			CargoID:      "1",
+			Estado:       domain.EstadoListaParaEnvio,
+		}
+		if err := postulacionRepo.Save(ctx, postulacion5); err != nil {
+			t.Fatalf("error guardando postulación concurrente: %v", err)
+		}
+
+		svc := application.NewPostulacionService(txManager, postulacionRepo, realDocRepo, notifRepo)
+		key := fmt.Sprintf("tx-concurrent-%d", time.Now().UnixNano())
+		results := make(chan *application.EnviarPostulacionResult, 2)
+		errs := make(chan error, 2)
+		var wg sync.WaitGroup
+		for i := 0; i < 2; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				res, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
+					PostulacionID:        postulacion5.ID,
+					Email:                postulante5.Email,
+					AceptaConsentimiento: true,
+					VersionTerminos:      "2025.1",
+					IdempotencyKey:       key,
+				})
+				results <- res
+				errs <- err
+			}()
+		}
+		wg.Wait()
+		close(results)
+		close(errs)
+
+		var codigo string
+		for err := range errs {
+			if err != nil {
+				t.Fatalf("envío concurrente falló: %v", err)
+			}
+		}
+		for res := range results {
+			if res == nil {
+				t.Fatal("respuesta concurrente nula")
+			}
+			if codigo == "" {
+				codigo = res.CodigoUnico
+			} else if codigo != res.CodigoUnico {
+				t.Fatalf("códigos concurrentes distintos: %s y %s", codigo, res.CodigoUnico)
+			}
+		}
+		var notificaciones int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM notificacion WHERE postulacion_id = $1::uuid`, postulacion5.ID).Scan(&notificaciones); err != nil {
+			t.Fatalf("contando notificaciones concurrentes: %v", err)
+		}
+		if notificaciones != 1 {
+			t.Fatalf("se esperaban 1 notificación, obtenidas %d", notificaciones)
 		}
 	})
 }

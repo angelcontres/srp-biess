@@ -73,8 +73,8 @@ func main() {
 		documentoRepo = database.NewPostgresDocumentoRepository(pool)
 		notificacionRepo = database.NewPostgresNotificacionRepository(pool)
 		txManager = database.NewPgxTxManager(pool)
-		postulacionService = application.NewPostulacionService(txManager, postulacionRepo, documentoRepo, notificacionRepo)
-		_ = postulacionService
+		postulacionService = application.NewPostulacionService(txManager, postulacionRepo, documentoRepo, notificacionRepo).
+			WithNormalizador(database.NewPostgresNormalizador(pool))
 		formularioPg := database.NewPostgresFormularioRepository(pool)
 		formularioRepo = formularioPg
 		cargoRepo = formularioPg // SRP-017a: confirmación del cargo
@@ -119,7 +119,7 @@ func main() {
 	healthHandler := handlers.NewHealthHandler()
 	authHandler := handlers.NewAuthHandler(authService)
 	eligibilityHandler := handlers.NewEligibilityHandler(eligibilityService)
-	postulacionHandler := handlers.NewPostulacionHandler(formularioService)
+	postulacionHandler := handlers.NewPostulacionHandler(formularioService, postulacionService)
 	cargoHandler := handlers.NewCargoHandler(cargoService)
 	catalogoHandler := handlers.NewCatalogoHandler(catalogoService)
 

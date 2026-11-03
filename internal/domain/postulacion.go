@@ -40,9 +40,20 @@ type Postulacion struct {
 // PostulacionRepository define el puerto para persistir postulaciones.
 type PostulacionRepository interface {
 	GetByID(ctx context.Context, id string) (*Postulacion, error)
+	GetByIDForUpdate(ctx context.Context, id string) (*Postulacion, error)
 	GetByPostulanteID(ctx context.Context, postulanteID string) (*Postulacion, error)
 	Save(ctx context.Context, p *Postulacion) error
 	UpdateEstado(ctx context.Context, id string, estado EstadoPostulacion) error
 	UpdateSubmit(ctx context.Context, id, codigoUnico string, fechaEnvio time.Time) error
 	NextCodigoUnico(ctx context.Context) (string, error)
+	GetIdempotentSubmission(ctx context.Context, key string) (*IdempotentSubmission, error)
+	SaveIdempotentSubmission(ctx context.Context, key, postulacionID string, response []byte) error
+	SaveConsentimiento(ctx context.Context, postulacionID, version string) error
+}
+
+// IdempotentSubmission contiene la respuesta persistida de un envío ya procesado.
+type IdempotentSubmission struct {
+	Key           string
+	PostulacionID string
+	Response      []byte
 }
