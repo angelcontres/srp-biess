@@ -1,8 +1,10 @@
 import type { FormEvent, ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { RotateCw } from 'lucide-react';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import Skeleton from '@/components/ui/Skeleton';
+import { RUTAS } from '@/features/auth/session/routes';
 import { formatDateTime } from '@/utils/format';
 import { SECCIONES } from '../constants';
 import type { SeccionId } from '../constants';
@@ -62,9 +64,13 @@ export default function SeccionLayout({
   guardarProgreso,
   onContinuar,
   etiquetaPrimaria = 'Guardar y continuar',
-  soloLectura = false,
+  soloLectura: soloLecturaSeccion = false,
 }: SeccionLayoutProps) {
-  const { irA } = usePostulacion();
+  const { irA, postulacion } = usePostulacion();
+  // The server only accepts changes in BORRADOR (409 POS_CERRADA otherwise): NO_ELEGIBLE,
+  // ENVIADA, etc. are shown read-only instead of failing on save (SDD 10.11).
+  const cerrada = postulacion.estado !== 'BORRADOR';
+  const soloLectura = soloLecturaSeccion || cerrada;
   const online = useOnlineStatus();
   const indice = SECCIONES.findIndex((item) => item.id === seccion);
   const anterior = SECCIONES[indice - 1];
@@ -87,6 +93,24 @@ export default function SeccionLayout({
         {!online ? (
           <Alert variant="warning" title="Sin conexión.">
             Sus cambios no se pueden guardar hasta que se restablezca.
+          </Alert>
+        ) : null}
+
+        {cerrada ? (
+          <Alert variant="info" title="Su postulación ya no admite cambios.">
+            {postulacion.estado === 'NO_ELEGIBLE' ? (
+              <p>
+                No cumple los requisitos de elegibilidad para el cargo seleccionado. Puede consultar el resultado en{' '}
+                <Link
+                  to={RUTAS.miPostulacion}
+                  className="text-primary underline underline-offset-4 hover:text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-dark"
+                >
+                  Mi postulación
+                </Link>.
+              </p>
+            ) : (
+              <p>La información se muestra solo para consulta.</p>
+            )}
           </Alert>
         ) : null}
 
@@ -132,7 +156,10 @@ export default function SeccionLayout({
             {instrucciones ? <div className="max-w-prose text-base text-neutral-700">{instrucciones}</div> : null}
             {soloLectura ? null : <RequiredNote />}
 
-            {children}
+            {/* A disabled fieldset disables every control of the section in one place. */}
+            <fieldset disabled={cerrada} className="min-w-0 space-y-8">
+              {children}
+            </fieldset>
 
             {soloLectura ? null : (
               <div className="space-y-4 border-t border-line pt-6">

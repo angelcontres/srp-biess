@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Copy, Download, Info } from 'lucide-react';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
+import { RUTAS } from '@/features/auth/session/routes';
 import { formatDateTime } from '@/utils/format';
 import { CARGOS } from '../constants';
 import { usePostulacion } from '../PostulacionContext';
@@ -39,7 +41,7 @@ export function ElegibilidadView({ elegibilidad }: { elegibilidad: Elegibilidad 
         <div className="max-w-prose space-y-2 text-base text-neutral-900">
           <p className="font-semibold">Resultado de la validación de elegibilidad</p>
           {cargo ? <p>Cargo: {cargo.nombre}.</p> : null}
-          <p>{elegibilidad.mensaje}</p>
+          <p className="font-semibold">{elegibilidad.mensaje}</p>
           <p className="text-sm tabular-nums text-muted">Fecha y hora del resultado: {formatDateTime(elegibilidad.fecha)} (hora de Ecuador).</p>
         </div>
       </div>
@@ -51,7 +53,13 @@ export function ElegibilidadView({ elegibilidad }: { elegibilidad: Elegibilidad 
         </div>
       ) : (
         <p className="max-w-prose text-base text-neutral-700">
-          Este resultado queda registrado en su postulación. Puede volver a consultarlo en la sección Cargo.
+          Este resultado queda registrado en su postulación. Puede volver a consultarlo en{' '}
+          <Link
+            to={RUTAS.miPostulacion}
+            className="text-primary underline underline-offset-4 hover:text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-dark"
+          >
+            Mi postulación
+          </Link>.
         </p>
       )}
     </div>
