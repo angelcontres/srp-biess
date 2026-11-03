@@ -13,6 +13,8 @@ export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
   containerClassName?: string;
   /** Optional element rendered at the end of the label row, such as a badge. */
   labelAdornment?: ReactNode;
+  /** Control rendered inside the input box, aligned to its vertical center (for example the password toggle). */
+  trailingAdornment?: ReactNode;
 }
 
 const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextField(
@@ -23,6 +25,7 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextFiel
     verified = false,
     containerClassName = '',
     labelAdornment,
+    trailingAdornment,
     className = '',
     id,
     required,
@@ -64,26 +67,33 @@ const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextFiel
         </p>
       ) : null}
 
-      <input
-        {...rest}
-        id={inputId}
-        ref={ref}
-        required={required}
-        disabled={disabled}
-        readOnly={isReadOnly}
-        aria-invalid={hasError || undefined}
-        aria-describedby={describedBy}
-        className={[
-          'mt-2 block h-11 w-full rounded-md border px-3 text-base text-neutral-900',
-          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-dark',
-          'disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-muted',
-          hasError ? 'border-2 border-danger' : 'border border-line-input',
-          isReadOnly ? 'bg-neutral-100' : 'bg-surface',
-          className,
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      />
+      <div className="relative mt-2">
+        <input
+          {...rest}
+          id={inputId}
+          ref={ref}
+          required={required}
+          disabled={disabled}
+          readOnly={isReadOnly}
+          aria-invalid={hasError || undefined}
+          aria-describedby={describedBy}
+          className={[
+            'block h-11 w-full rounded-md border px-3 text-base text-neutral-900',
+            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-dark',
+            'disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-muted',
+            trailingAdornment ? 'pr-12' : '',
+            hasError ? 'border-2 border-danger' : 'border border-line-input',
+            isReadOnly ? 'bg-neutral-100' : 'bg-surface',
+            className,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        />
+
+        {trailingAdornment ? (
+          <div className="absolute inset-y-0 right-0 flex items-center pr-1">{trailingAdornment}</div>
+        ) : null}
+      </div>
 
       {hasError ? (
         <p id={errorId} role="alert" className="mt-2 flex gap-2 text-base text-danger">

@@ -1,4 +1,7 @@
-import axios, { type AxiosInstance } from 'axios';
+import axios, { type AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import { getAccessToken, clearSession, setAccessToken } from '@/store/authStore';
+
+let refreshPromise: Promise<string | null> | null = null;
 
 /**
  * Base URL of the SRP-BIESS REST API.
@@ -25,6 +28,18 @@ export const api: AxiosInstance = axios.create({
   timeout: 15000,
 });
 
+/**
+ * Attaches the in-memory access token to every request. Without this interceptor
+ * the API answers 401 "Cabecera Authorization no proporcionada".
+ */
+api.interceptors.request.use((config) => {
+  const token = getAccessToken();
+  if (token) {
+    config.headers.set('Authorization', `Bearer ${token}`);
+  }
+  return config;
+});
+
 /** RFC 7807 problem details as returned by the API. */
 export interface ApiProblem {
   type?: string;
@@ -46,6 +61,16 @@ export interface NormalizedApiError {
   status?: number;
   fields?: Record<string, string>;
   traceId?: string;
+  /** Seconds from the `Retry-After` header (HTTP 423/429), when present. */
+  retryAfterSeconds?: number;
+}
+
+/** Lockout length used when a 423 arrives without `Retry-After` (EF-11: 10 minutes). */
+export const DEFAULT_LOCKOUT_SECONDS = 600;
+
+function parseRetryAfter(value: unknown): number | undefined {
+  const seconds = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
 }
 
 const DEFAULT_ERROR_MESSAGE = 'Ocurrió un error inesperado. Intente nuevamente.';
@@ -71,6 +96,7 @@ export function normalizeError(error: unknown): NormalizedApiError {
       status: error.response.status,
       fields: data?.fields,
       traceId: data?.traceId,
+      retryAfterSeconds: parseRetryAfter(error.response.headers?.['retry-after']),
     };
   }
 
@@ -80,3 +106,40 @@ export function normalizeError(error: unknown): NormalizedApiError {
 
   return { code: 'UNEXPECTED_ERROR', message: DEFAULT_ERROR_MESSAGE };
 }
+
+/** Pide un access token nuevo usando la cookie HttpOnly. Si llegan varias peticiones a la vez, solo hace una llamada. */
+export function refreshAccessToken(): Promise<string | null> {
+  refreshPromise ??= axios
+    // Se usa axios "crudo" a propósito, sin la instancia `api`, para que no pase por los interceptores y no se forme un bucle
+    .post<{ data: { access_token: string } }>(`${API_BASE_URL}/auth/refresh`, null, {
+      withCredentials: true, // necesario para que se envíe la cookie
+    })
+    .then((res) => {
+      const token = res.data?.data?.access_token ?? null;
+      setAccessToken(token);
+      return token;
+    })
+    .catch(() => {
+      clearSession(); // la cookie expiró o se revocó
+      return null;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+  return refreshPromise;
+}
+
+api.interceptors.response.use(undefined, async (error) => {
+  const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+  const isAuthEndpoint = /\/auth\/(login|refresh)$/.test(original?.url ?? '');
+
+  if (error.response?.status === 401 && original && !original._retry && !isAuthEndpoint) {
+    original._retry = true; // reintenta una sola vez
+    const token = await refreshAccessToken();
+    if (token) {
+      original.headers.set('Authorization', `Bearer ${token}`);
+      return api(original);
+    }
+  }
+  return Promise.reject(error);
+});

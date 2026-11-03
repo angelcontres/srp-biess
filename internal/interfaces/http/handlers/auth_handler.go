@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -121,6 +122,7 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 }
 
 // ValidarCedula valida el formato de documento con la estrategia Módulo 10.
+// TODO(backend: SRP-008): alinear ruta y respuesta con SDD 7.6.1 (ver TODO en router.go).
 func (h *AuthHandler) ValidarCedula(c *fiber.Ctx) error {
 	var req ValidarCedulaRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -148,4 +150,52 @@ func (h *AuthHandler) Me(c *fiber.Ctx) error {
 		"cedula":        cedula,
 		"email":         email,
 	}, "Sesión activa y válida"))
+}
+
+type ValidarIdentidadRequest struct {
+	Cedula         string `json:"cedula"`
+	TipoValidacion string `json:"tipoValidacion"`
+	Valor          string `json:"valor"` // fecha en ISO (YYYY-MM-DD) o código dactilar
+}
+
+// ValidarIdentidadRegistro implementa POST /auth/registro/validar-identidad (SDD 7.4.1).
+func (h *AuthHandler) ValidarIdentidadRegistro(c *fiber.Ctx) error {
+	var req ValidarIdentidadRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("Cuerpo de petición inválido"))
+	}
+	req.Cedula = strings.TrimSpace(req.Cedula)
+	req.Valor = strings.TrimSpace(req.Valor)
+	if req.Cedula == "" || req.Valor == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("La cédula y el dato de validación son obligatorios"))
+	}
+
+	res, err := h.authService.ValidarIdentidadRegistro(c.Context(), req.Cedula, domain.TipoValidacion(req.TipoValidacion), req.Valor)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidTipoValidacion):
+			return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("Tipo de validación no soportado"))
+		case errors.Is(err, domain.ErrInvalidCedula):
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.Failure("La cédula ingresada no es válida"))
+		case errors.Is(err, domain.ErrIdentityMismatch):
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.Failure(domain.ErrIdentityMismatch.Error()))
+		case errors.Is(err, domain.ErrExternalUnavailable):
+			return c.Status(fiber.StatusServiceUnavailable).JSON(dto.Failure(domain.ErrExternalUnavailable.Error()))
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(dto.Failure("Error interno durante la validación de identidad"))
+		}
+	}
+
+	d := res.Datos
+	return c.JSON(dto.Success(fiber.Map{
+		"identidadValidada": true,
+		"tokenValidacion":   res.TokenValidacion,
+		"datos": fiber.Map{
+			"nombres":         d.Nombres,
+			"apellidos":       d.Apellidos,
+			"genero":          d.Genero,
+			"fechaNacimiento": d.FechaNacimiento.Format("2006-01-02"),
+			"nacionalidad":    d.Nacionalidad,
+		},
+	}, "Identidad validada con el Registro Civil"))
 }

@@ -71,6 +71,7 @@ type AuthService struct {
 	repo         domain.PostulanteRepository
 	validator    domain.DocumentValidationStrategy
 	sessionStore domain.SessionStore
+	identity     domain.IdentityProvider // Registro Civil (SDD 7.4.1)
 
 	// Fallback para usuarios semilla en pruebas si repo no está inicializado
 	seedUsersMu sync.RWMutex
