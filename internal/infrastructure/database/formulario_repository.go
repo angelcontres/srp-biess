@@ -2,9 +2,11 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -38,7 +40,8 @@ func idsValidos(ids ...string) bool {
 
 const selectEstado = `
 	SELECT p.id, p.estado::text, p.version, p.fecha_guardado, COALESCE(p.ultima_seccion, ''),
-	       COALESCE(p.cargo_id, 0), p.elegibilidad_estado, COALESCE(p.elegibilidad_motivo, ''), p.updated_at
+	       COALESCE(p.cargo_id, 0), p.elegibilidad_estado, COALESCE(p.elegibilidad_motivo, ''), p.updated_at,
+	       COALESCE(p.codigo_unico, ''), p.fecha_envio
 	FROM postulacion p`
 
 func (r *PostgresFormularioRepository) leerEstado(ctx context.Context, where string, args ...any) (*domain.EstadoFormulario, error) {
@@ -54,6 +57,7 @@ func (r *PostgresFormularioRepository) leerEstado(ctx context.Context, where str
 	err := r.q.QueryRow(ctx, selectEstado+" "+where, args...).Scan(
 		&e.ID, &e.Estado, &e.Version, &fechaGuardado, &ultimaSeccion,
 		&cargoID, &elegibilidadEstado, &motivo, &actualizado,
+		&e.CodigoUnico, &e.FechaEnvio,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -222,4 +226,83 @@ func (r *PostgresFormularioRepository) diagnosticarRechazo(ctx context.Context, 
 	default:
 		return domain.ErrConflictoVersion
 	}
+}
+
+// NombreCargo devuelve el nombre del cargo para el formulario PDF (SRP-017c).
+func (r *PostgresFormularioRepository) NombreCargo(ctx context.Context, cargoID int) (string, error) {
+	var nombre string
+	err := ExtractQuerier(ctx, r.q).QueryRow(ctx, `SELECT nombre FROM cargo WHERE id = $1::smallint`, cargoID).Scan(&nombre)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", domain.ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("error consultando el cargo: %w", err)
+	}
+	return nombre, nil
+}
+
+// TextosConsentimiento devuelve los textos aceptados para el formulario PDF ([] si no hay).
+func (r *PostgresFormularioRepository) TextosConsentimiento(ctx context.Context, postulacionID string) ([]string, error) {
+	var datos []byte
+	err := ExtractQuerier(ctx, r.q).QueryRow(ctx,
+		`SELECT textos_aceptados FROM consentimiento WHERE postulacion_id = $1::uuid`, postulacionID).Scan(&datos)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error leyendo los consentimientos: %w", err)
+	}
+	var textos []string
+	if json.Unmarshal(datos, &textos) != nil { // '{}' heredado: sin textos
+		return nil, nil
+	}
+	return textos, nil
+}
+
+// Historial devuelve los cambios de estado en orden cronológico inverso (SDD 8.5.10). Sale de la
+// auditoría (SDD 9.9); la creación y el envío se completan con las fechas de la postulación cuando
+// no hay evento (postulaciones anteriores a esta auditoría).
+func (r *PostgresFormularioRepository) Historial(ctx context.Context, id, postulanteID string) ([]domain.EventoEstado, error) {
+	if !idsValidos(id, postulanteID) {
+		return nil, domain.ErrNotFound
+	}
+	var creada time.Time
+	var enviada *time.Time
+	err := r.q.QueryRow(ctx,
+		`SELECT fecha_creacion, fecha_envio FROM postulacion WHERE id = $1::uuid AND postulante_id = $2::uuid`,
+		id, postulanteID).Scan(&creada, &enviada)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, r.noEncontradaOAjena(ctx, id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error consultando la postulación: %w", err)
+	}
+	rows, err := r.q.Query(ctx, `
+		SELECT datos_despues->>'estado', created_at FROM auditoria_evento
+		WHERE entidad = 'postulacion' AND entidad_id = $1 AND accion = ANY($2)
+		  AND datos_despues ? 'estado'
+		ORDER BY created_at`, id,
+		[]string{domain.AccionPostulacionNoElegible, domain.AccionPostulacionLista, domain.AccionPostulacionEnviada})
+	if err != nil {
+		return nil, fmt.Errorf("error consultando el historial: %w", err)
+	}
+	defer rows.Close()
+	eventos := []domain.EventoEstado{{Estado: "BORRADOR", Fecha: creada}}
+	conEnvio := false
+	for rows.Next() {
+		var e domain.EventoEstado
+		if err := rows.Scan(&e.Estado, &e.Fecha); err != nil {
+			return nil, fmt.Errorf("error leyendo el historial: %w", err)
+		}
+		conEnvio = conEnvio || e.Estado == "ENVIADA"
+		eventos = append(eventos, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if enviada != nil && !conEnvio {
+		eventos = append(eventos, domain.EventoEstado{Estado: "ENVIADA", Fecha: *enviada})
+	}
+	sort.SliceStable(eventos, func(i, j int) bool { return eventos[i].Fecha.After(eventos[j].Fecha) })
+	return eventos, nil
 }

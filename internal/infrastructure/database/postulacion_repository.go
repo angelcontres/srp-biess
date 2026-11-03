@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -242,6 +243,23 @@ func (r *PostgresPostulacionRepository) SaveConsentimiento(ctx context.Context, 
 		    fecha_aceptacion = now()`, postulacionID, version)
 	if err != nil {
 		return fmt.Errorf("error guardando consentimiento: %w", err)
+	}
+	return nil
+}
+
+// SaveTextosConsentimiento guarda los textos aceptados (SDD 8.5.8); el PDF imprime estos mismos.
+func (r *PostgresPostulacionRepository) SaveTextosConsentimiento(ctx context.Context, postulacionID string, textos []string) error {
+	datos, err := json.Marshal(textos)
+	if err != nil {
+		return fmt.Errorf("error serializando consentimientos: %w", err)
+	}
+	tag, err := r.getQuerier(ctx).Exec(ctx,
+		`UPDATE consentimiento SET textos_aceptados = $2::jsonb WHERE postulacion_id = $1::uuid`, postulacionID, string(datos))
+	if err != nil {
+		return fmt.Errorf("error guardando los textos de consentimiento: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrNotFound
 	}
 	return nil
 }

@@ -1,9 +1,15 @@
 package database_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -11,6 +17,8 @@ import (
 	"srp-biess/internal/application"
 	"srp-biess/internal/domain"
 	"srp-biess/internal/infrastructure/database"
+	pdfgen "srp-biess/internal/infrastructure/pdf"
+	"srp-biess/internal/infrastructure/storage"
 )
 
 // faultyDocRepo simula un fallo inducido durante la inserción de documento para forzar rollback
@@ -184,6 +192,27 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		t.Fatalf("error creando postulante base: %v", err)
 	}
 
+	// El envío genera el PDF real en un almacén temporal por prueba.
+	raizAlmacen := t.TempDir()
+	almacen, err := storage.NewAlmacenLocal(raizAlmacen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nuevoServicio := func(docRepo domain.DocumentoRepository) *application.PostulacionService {
+		return application.NewPostulacionService(txManager, postulacionRepo, docRepo, notifRepo).
+			WithFormularioPDF(postulanteRepo, database.NewPostgresFormularioRepository(pool), pdfgen.NewGeneradorGopdf(), almacen)
+	}
+	archivosDefinitivos := func() int {
+		entradas, _ := os.ReadDir(filepath.Join(raizAlmacen, "documentos"))
+		n := 0
+		for _, e := range entradas {
+			if !e.IsDir() {
+				n++
+			}
+		}
+		return n
+	}
+
 	t.Run("1. Happy Path Atómico: Actualiza estado, genera código, crea PDF y encola notificación", func(t *testing.T) {
 		// Crear postulación en BORRADOR
 		postulacion := &domain.Postulacion{
@@ -195,12 +224,12 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 			t.Fatalf("error guardando postulacion borrador: %v", err)
 		}
 
-		svc := application.NewPostulacionService(txManager, postulacionRepo, realDocRepo, notifRepo)
+		svc := nuevoServicio(realDocRepo)
 
 		idempotencyKey := fmt.Sprintf("tx-happy-%d", time.Now().UnixNano())
 		res, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
 			PostulacionID:        postulacion.ID,
-			Email:                postulante.Email,
+			PostulanteID:         postulante.ID,
 			AceptaConsentimiento: true,
 			VersionTerminos:      "2025.1",
 			IdempotencyKey:       idempotencyKey,
@@ -243,9 +272,64 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 			t.Errorf("tipo doc = %s; want %s", docs[0].Tipo, domain.DocFormularioPostulacion)
 		}
 
+		// 1.3 El PDF existe, se puede abrir y coincide con el tamaño y el hash registrados.
+		doc := docs[0]
+		if doc.ID != res.DocumentoID || res.PDFURL != application.URLFormularioPDF(postulacion.ID) {
+			t.Fatalf("respuesta inesperada: documento %s, pdfUrl %s", res.DocumentoID, res.PDFURL)
+		}
+		if doc.NombreOriginal != domain.NombreFormularioPDF(res.CodigoUnico) {
+			t.Errorf("nombre del formulario = %s", doc.NombreOriginal)
+		}
+		f, err := almacen.Abrir(doc.NombreAlmacenado)
+		if err != nil {
+			t.Fatalf("el formulario no se puede abrir: %v", err)
+		}
+		contenido, _ := io.ReadAll(f)
+		_ = f.Close()
+		suma := sha256.Sum256(contenido)
+		if !domain.EsPDF(contenido) || !bytes.Contains(contenido, []byte("%%EOF")) ||
+			int64(len(contenido)) != doc.TamanoBytes || hex.EncodeToString(suma[:]) != doc.HashSHA256 {
+			t.Fatalf("PDF inválido o metadatos falsos: %d bytes, registrado %d, hash %s", len(contenido), doc.TamanoBytes, doc.HashSHA256)
+		}
+		if doc.HashSHA256 == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" {
+			t.Fatal("el hash es el del contenido vacío")
+		}
+		descargado, archivo, err := svc.DescargarFormulario(ctx, postulacion.ID, postulante.ID)
+		if err != nil || descargado.ID != doc.ID {
+			t.Fatalf("DescargarFormulario: %v", err)
+		}
+		_ = archivo.Close()
+
+		// 1.4 La notificación va al correo registrado del postulante.
+		var destinatario string
+		if err := pool.QueryRow(ctx, `SELECT destinatario FROM notificacion WHERE postulacion_id = $1::uuid`, postulacion.ID).Scan(&destinatario); err != nil {
+			t.Fatalf("leyendo notificación: %v", err)
+		}
+		if destinatario != postulante.Email {
+			t.Fatalf("destinatario = %s; want %s", destinatario, postulante.Email)
+		}
+
+		// 1.5 Otro postulante no reutiliza la respuesta ni descarga el formulario.
+		intruso := &domain.Postulante{
+			Cedula: fmt.Sprintf("05%08d", time.Now().UnixNano()%100000000), Nombres: "INTRUSO", Apellidos: "AJENO",
+			Email: fmt.Sprintf("intruso_%d@biess.gob.ec", time.Now().UnixNano()), PasswordHash: "hash_seguro",
+		}
+		if err := postulanteRepo.Save(ctx, intruso); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
+			PostulacionID: postulacion.ID, PostulanteID: intruso.ID, AceptaConsentimiento: true,
+			VersionTerminos: "2025.1", IdempotencyKey: idempotencyKey,
+		}); !errors.Is(err, domain.ErrAccesoDenegado) {
+			t.Fatalf("reintento ajeno con la llave original: esperado ErrAccesoDenegado, obtenido %v", err)
+		}
+		if _, _, err := svc.DescargarFormulario(ctx, postulacion.ID, intruso.ID); !errors.Is(err, domain.ErrAccesoDenegado) {
+			t.Fatalf("descarga ajena: esperado ErrAccesoDenegado, obtenido %v", err)
+		}
+
 		resRetry, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
 			PostulacionID:        postulacion.ID,
-			Email:                postulante.Email,
+			PostulanteID:         postulante.ID,
 			AceptaConsentimiento: true,
 			VersionTerminos:      "2025.1",
 			IdempotencyKey:       idempotencyKey,
@@ -299,11 +383,11 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 			shouldFail:          true,
 		}
 
-		svc := application.NewPostulacionService(txManager, postulacionRepo, failingDocRepo, notifRepo)
+		svc := nuevoServicio(failingDocRepo)
 
 		_, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
 			PostulacionID:        postulacion.ID,
-			Email:                postulante2.Email,
+			PostulanteID:         postulante2.ID,
 			AceptaConsentimiento: true,
 			VersionTerminos:      "2025.1",
 			IdempotencyKey:       fmt.Sprintf("tx-rollback-%d", time.Now().UnixNano()),
@@ -342,6 +426,10 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		if len(docs) > 0 {
 			t.Errorf("DOCUMENTO PERSISTIDO TRAS ROLLBACK: se encontraron %d documentos", len(docs))
 		}
+		// Tampoco queda el archivo: solo el formulario del caso 1 está en el almacén.
+		if n := archivosDefinitivos(); n != 1 {
+			t.Errorf("ARCHIVO HUÉRFANO TRAS ROLLBACK: hay %d formularios en el almacén", n)
+		}
 	})
 	t.Run("3. Prevención de doble envío: segundo intento devuelve ErrPostulacionYaEnviada", func(t *testing.T) {
 		cedula3 := fmt.Sprintf("18%08d", time.Now().UnixNano()%100000000)
@@ -366,12 +454,12 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 			t.Fatalf("error guardando postulacion 3: %v", err)
 		}
 
-		svc := application.NewPostulacionService(txManager, postulacionRepo, realDocRepo, notifRepo)
+		svc := nuevoServicio(realDocRepo)
 
 		// Primer envío exitoso
 		res1, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
 			PostulacionID:        postulacion3.ID,
-			Email:                postulante3.Email,
+			PostulanteID:         postulante3.ID,
 			AceptaConsentimiento: true,
 			VersionTerminos:      "2025.1",
 			IdempotencyKey:       fmt.Sprintf("tx-duplicate-first-%d", time.Now().UnixNano()),
@@ -386,7 +474,7 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 		// Segundo envío concurrente/inmediato debe ser rechazado
 		_, err = svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
 			PostulacionID:        postulacion3.ID,
-			Email:                postulante3.Email,
+			PostulanteID:         postulante3.ID,
 			AceptaConsentimiento: true,
 			VersionTerminos:      "2025.1",
 			IdempotencyKey:       fmt.Sprintf("tx-duplicate-second-%d", time.Now().UnixNano()),
@@ -419,11 +507,11 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 			t.Fatalf("error guardando postulacion 4: %v", err)
 		}
 
-		svc := application.NewPostulacionService(txManager, postulacionRepo, realDocRepo, notifRepo)
+		svc := nuevoServicio(realDocRepo)
 
 		res, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
 			PostulacionID:        postulacion4.ID,
-			Email:                postulante4.Email,
+			PostulanteID:         postulante4.ID,
 			AceptaConsentimiento: true,
 			VersionTerminos:      "2025.1",
 			IdempotencyKey:       fmt.Sprintf("tx-list-path-%d", time.Now().UnixNano()),
@@ -461,7 +549,7 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 			t.Fatalf("error guardando postulación concurrente: %v", err)
 		}
 
-		svc := application.NewPostulacionService(txManager, postulacionRepo, realDocRepo, notifRepo)
+		svc := nuevoServicio(realDocRepo)
 		key := fmt.Sprintf("tx-concurrent-%d", time.Now().UnixNano())
 		results := make(chan *application.EnviarPostulacionResult, 2)
 		errs := make(chan error, 2)
@@ -472,7 +560,7 @@ func TestPostulacionService_AtomicSubmitAndForcedRollback(t *testing.T) {
 				defer wg.Done()
 				res, err := svc.EnviarPostulacion(ctx, application.EnviarPostulacionRequest{
 					PostulacionID:        postulacion5.ID,
-					Email:                postulante5.Email,
+					PostulanteID:         postulante5.ID,
 					AceptaConsentimiento: true,
 					VersionTerminos:      "2025.1",
 					IdempotencyKey:       key,
