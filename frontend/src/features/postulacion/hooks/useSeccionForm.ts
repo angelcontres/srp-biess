@@ -30,6 +30,14 @@ function describirError(error: unknown): ErrorServidor {
       detalle: 'La postulación fue modificada en otra sesión. Recargue la página. Sus datos siguen en pantalla.',
     };
   }
+  // 409 POS_CERRADA: sent, closed or NO_ELEGIBLE. Retrying never works, so no retry hint.
+  if (normalized.code === 'POS_CERRADA') {
+    return {
+      titulo: 'No se pudo guardar.',
+      detalle: 'Su postulación ya no admite cambios. Sus datos siguen en pantalla, pero no se guardarán.',
+      referencia: normalized.traceId,
+    };
+  }
   if (normalized.code === 'NETWORK_ERROR' || !normalized.status) {
     return {
       titulo: 'No se pudo guardar.',

@@ -7,6 +7,7 @@ export const RUTAS = {
   ingresar: '/ingresar',
   registro: '/registro',
   formulario: '/formulario',
+  miPostulacion: '/mi-postulacion',
 } as const;
 
 /** Navigation state: the protected page to return to after signing in. */

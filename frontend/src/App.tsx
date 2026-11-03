@@ -11,6 +11,7 @@ import type { EstadoRedireccion } from '@/features/auth/session/routes';
 
 // SDD 6.13: the form is code-split; it loads only after authentication.
 const PostulacionPage = lazy(() => import('@/features/postulacion/pages/PostulacionPage'));
+const MiPostulacionPage = lazy(() => import('@/features/postulacion/pages/MiPostulacionPage'));
 
 const footerLinks = [
   { label: 'Ayuda', href: '#ayuda' },
@@ -102,6 +103,21 @@ function App() {
                   }
                 >
                   <PostulacionPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path={RUTAS.miPostulacion}
+              element={
+                // SDD 8.5.10: state, eligibility result and, once sent, code and PDF.
+                <Suspense
+                  fallback={
+                    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+                      <Skeleton label="Cargando su postulación" />
+                    </div>
+                  }
+                >
+                  <MiPostulacionPage />
                 </Suspense>
               }
             />
