@@ -2,6 +2,9 @@
 -- SRP-BIESS · Base de Datos PostgreSQL 16
 -- Concurso de Méritos y Oposición Directorio BIESS (EF-11 y EF-12)
 -- Script Inicial DDL + Semillas (Idempotente)
+--
+-- Reiniciar la bd para que ejecute los nuevos cambios sin flujo de pago con este archivo:
+-- ! docker compose stop postgres && docker compose rm -f postgres && docker volume rm srp-biess_postgres_data && docker compose up -d postgres
 -- =====================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
