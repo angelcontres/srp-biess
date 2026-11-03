@@ -77,7 +77,7 @@ Se implementa un **microservicio transaccional único** con arquitectura interna
 | ADR-011 | Outbox de notificaciones. | Evita perder correos y desacopla el envío. |
 | ADR-012 | PDF generado en servidor con plantilla. | Formulario imprimible y firmable. |
 | ADR-013 | Validación algorítmica de cédula (Módulo 10). | Fail-fast offline antes de invocar servicios externos. |
-| ADR-014 | Pagos con tarjeta y facturación con Mocks implementables. | Arquitectura hexagonal para pagos y emisión de factura por correo. |
+| ADR-014 | **Retirada (03/11/2026).** Pagos con tarjeta y facturación con Mocks implementables. | Arquitectura hexagonal para pagos y emisión de factura por correo. |
 
 ---
 

@@ -59,8 +59,8 @@ Las reglas **Fuente** son obligatorias. Las **Derivadas** se justifican en el SD
 | RN-39 | Los catálogos se cachean con TTL de 24 h y se invalidan por versión. | Derivada | Redis |
 | RN-40 | La retención de datos sigue la política institucional; propuesta: 5 años después del cierre del concurso. | Propuesta | Operación |
 | RN-41 | Toda cédula ecuatoriana debe cumplir validación de 10 dígitos, provincia (01-24 o 30), tercer dígito < 6 y residuo de algoritmo Módulo 10 antes de consultar Registro Civil. | Derivada | Validador / UI / API |
-| RN-42 | El pago de arancel con tarjeta valida algoritmo de Luhn, fecha futura y CVV; la pasarela opera mediante interfaz mockeable pero preparada para producción. | Derivada | Servicio de Pago / Gateway |
-| RN-43 | Aprobado el pago, se emite factura con clave de acceso de 49 dígitos del SRI y se envía automáticamente por correo con su PDF adjunto. | Derivada | Facturación / Outbox |
+| RN-42 | **Retirada (03/11/2026): la postulación es gratuita.** El pago de arancel con tarjeta valida algoritmo de Luhn, fecha futura y CVV; la pasarela opera mediante interfaz mockeable pero preparada para producción. | Derivada | Servicio de Pago / Gateway |
+| RN-43 | **Retirada (03/11/2026): la postulación es gratuita.** Aprobado el pago, se emite factura con clave de acceso de 49 dígitos del SRI y se envía automáticamente por correo con su PDF adjunto. | Derivada | Facturación / Outbox |
 
 ---
 

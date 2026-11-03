@@ -75,8 +75,8 @@ Este capítulo demuestra que cada requisito tiene un origen, una regla asociada,
 | RF-CAT-04 | RN-39 | `CatalogoCache` | Redis | IT-34 |
 | RF-CAT-05 | RN-39 | `CatalogoCache` | Invalidación | IT-35 |
 | RF-VAL-01 | RN-01, RN-41 | `NationalIDValidator` | `POST /validaciones/cedula` | UT-02 |
-| RF-PAG-01 | RN-42 | `PagoService`, `PaymentGateway` | `POST /postulaciones/{id}/pagos` | IT-36 |
-| RF-PAG-02 | RN-43 | `InvoicingService`, `NotificationWorker` | `GET /postulaciones/{id}/factura` | IT-37 |
+| RF-PAG-01 (retirado) | RN-42 | `PagoService`, `PaymentGateway` | `POST /postulaciones/{id}/pagos` | IT-36 |
+| RF-PAG-02 (retirado) | RN-43 | `InvoicingService`, `NotificationWorker` | `GET /postulaciones/{id}/factura` | IT-37 |
 
 **Convención de pruebas:** `UT` unitaria, `IT` integración, `E2E` extremo a extremo. Los identificadores se desarrollan en `SDD/15-plan-de-pruebas.md`.
 

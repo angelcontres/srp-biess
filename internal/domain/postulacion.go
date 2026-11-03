@@ -24,18 +24,17 @@ const (
 
 // Postulacion representa la solicitud formal a un cargo del concurso.
 type Postulacion struct {
-	ID                 string            `json:"id"`
-	CodigoPostulacion  string            `json:"codigo_postulacion"` // Ej. BIESS-2026-00001
-	PostulanteID       string            `json:"postulante_id"`
-	CargoID            string            `json:"cargo_id"`
-	Estado             EstadoPostulacion `json:"estado"`
-	ExperienciaMeses   int               `json:"experiencia_meses"`
-	DeclaracionJurada  bool              `json:"declaracion_jurada"`
-	ComprobantePagoURL string            `json:"comprobante_pago_url,omitempty"`
-	CertificadoPDFURL  string            `json:"certificado_pdf_url,omitempty"`
-	FechaEnvio         *time.Time        `json:"fecha_envio,omitempty"`
-	CreatedAt          time.Time         `json:"created_at"`
-	UpdatedAt          time.Time         `json:"updated_at"`
+	ID                string            `json:"id"`
+	CodigoPostulacion string            `json:"codigo_postulacion"` // Ej. BIESS-2026-00001
+	PostulanteID      string            `json:"postulante_id"`
+	CargoID           string            `json:"cargo_id"`
+	Estado            EstadoPostulacion `json:"estado"`
+	ExperienciaMeses  int               `json:"experiencia_meses"`
+	DeclaracionJurada bool              `json:"declaracion_jurada"`
+	CertificadoPDFURL string            `json:"certificado_pdf_url,omitempty"`
+	FechaEnvio        *time.Time        `json:"fecha_envio,omitempty"`
+	CreatedAt         time.Time         `json:"created_at"`
+	UpdatedAt         time.Time         `json:"updated_at"`
 }
 
 // PostulacionRepository define el puerto para persistir postulaciones.

@@ -15,7 +15,6 @@ const (
 	DocPublicacion            TipoDocumento = "PUBLICACION"
 	DocCapacitacion           TipoDocumento = "CAPACITACION"
 	DocFormularioPostulacion  TipoDocumento = "FORMULARIO_POSTULACION"
-	DocComprobantePago        TipoDocumento = "COMPROBANTE_PAGO"
 )
 
 // EstadoDocumento representa el estado de verificación documental.

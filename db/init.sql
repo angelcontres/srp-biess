@@ -51,7 +51,7 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 DO $$ BEGIN
-  CREATE TYPE tipo_documento AS ENUM ('RESPALDO_ORGANIZACIONAL', 'TITULO', 'EXPERIENCIA', 'PUBLICACION', 'CAPACITACION', 'FORMULARIO_POSTULACION', 'COMPROBANTE_PAGO');
+  CREATE TYPE tipo_documento AS ENUM ('RESPALDO_ORGANIZACIONAL', 'TITULO', 'EXPERIENCIA', 'PUBLICACION', 'CAPACITACION', 'FORMULARIO_POSTULACION');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 DO $$ BEGIN
@@ -80,14 +80,6 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 DO $$ BEGIN
   CREATE TYPE tipo_validacion AS ENUM ('FECHA_EXPEDICION', 'CODIGO_DACTILAR');
-EXCEPTION WHEN duplicate_object THEN null; END $$;
-
-DO $$ BEGIN
-  CREATE TYPE estado_pago AS ENUM ('PENDIENTE', 'APROBADO', 'RECHAZADO', 'REVERTIDO');
-EXCEPTION WHEN duplicate_object THEN null; END $$;
-
-DO $$ BEGIN
-  CREATE TYPE estado_factura AS ENUM ('EMITIDA', 'ANULADA', 'FALLIDA');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- ---------------------------------------------------------------------
@@ -238,7 +230,6 @@ CREATE TABLE IF NOT EXISTS postulacion (
   requiere_revision             boolean NOT NULL DEFAULT false,
   tiene_familiares_institucion  boolean,
   tiene_publicaciones           boolean,
-  estado_arancel                varchar(20) NOT NULL DEFAULT 'PENDIENTE',
   ultima_seccion                varchar(40),
   version                       integer NOT NULL DEFAULT 1,
   created_at                    timestamptz NOT NULL DEFAULT now(),
@@ -392,42 +383,7 @@ CREATE TABLE IF NOT EXISTS consentimiento (
 );
 
 -- ---------------------------------------------------------------------
--- 7. Pagos y Facturación Electrónica (ADR-014)
--- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS transaccion_pago (
-  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  postulacion_id      uuid NOT NULL REFERENCES postulacion(id) ON DELETE CASCADE,
-  postulante_id       uuid NOT NULL REFERENCES postulante(id) ON DELETE CASCADE,
-  codigo_transaccion  varchar(64) NOT NULL UNIQUE,
-  monto               numeric(10,2) NOT NULL CHECK (monto > 0),
-  moneda              char(3) NOT NULL DEFAULT 'USD',
-  franquicia          varchar(30) NOT NULL,
-  ultimos_cuatro      char(4) NOT NULL,
-  estado              estado_pago NOT NULL DEFAULT 'PENDIENTE',
-  gateway_provider    varchar(30) NOT NULL DEFAULT 'MOCK',
-  autorizacion_codigo varchar(64),
-  fecha_transaccion   timestamptz NOT NULL DEFAULT now(),
-  error_mensaje       text
-);
-
-CREATE TABLE IF NOT EXISTS factura (
-  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  transaccion_pago_id uuid NOT NULL UNIQUE REFERENCES transaccion_pago(id) ON DELETE CASCADE,
-  postulacion_id      uuid NOT NULL REFERENCES postulacion(id) ON DELETE CASCADE,
-  numero_factura      varchar(30) NOT NULL UNIQUE,
-  clave_acceso_sri    char(49) NOT NULL UNIQUE,
-  subtotal            numeric(10,2) NOT NULL,
-  iva                 numeric(10,2) NOT NULL,
-  total               numeric(10,2) NOT NULL,
-  estado              estado_factura NOT NULL DEFAULT 'EMITIDA',
-  enviada_correo      boolean NOT NULL DEFAULT false,
-  documento_pdf_id    uuid REFERENCES documento(id) ON DELETE SET NULL,
-  xml_autorizado      text,
-  created_at          timestamptz NOT NULL DEFAULT now()
-);
-
--- ---------------------------------------------------------------------
--- 8. Notificaciones (Outbox) y Auditoría
+-- 7. Notificaciones (Outbox) y Auditoría
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS notificacion (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -462,7 +418,7 @@ CREATE TABLE IF NOT EXISTS auditoria_evento (
 );
 
 -- ---------------------------------------------------------------------
--- 9. Datos Semilla (Seeds) Idempotentes
+-- 8. Datos Semilla (Seeds) Idempotentes
 -- ---------------------------------------------------------------------
 
 -- Países

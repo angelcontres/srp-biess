@@ -475,7 +475,8 @@ CREATE TABLE notificacion (
 );
 
 -- ---------------------------------------------------------------------
--- 8.1 Pagos y facturación electrónica (ADR-014)
+-- 8.1 Pagos y facturación electrónica (ADR-014). RETIRADO (03/11/2026): la postulación es gratuita;
+--     estas tablas se eliminan con db/migrations/002_eliminar_pagos.sql.
 -- ---------------------------------------------------------------------
 CREATE TABLE transaccion_pago (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),

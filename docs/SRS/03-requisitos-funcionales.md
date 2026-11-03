@@ -99,8 +99,8 @@ Cada requisito se documenta con la siguiente estructura mínima:
 | ID | Requisito | Prioridad |
 |---|---|---|
 | RF-VAL-01 | Validación algorítmica de cédula de ciudadanía ecuatoriana mediante Módulo 10. | Must |
-| RF-PAG-01 | Procesamiento de pago con tarjeta de crédito/débito, validación de Luhn y pasarela mockeable. | Must |
-| RF-PAG-02 | Emisión automática de factura electrónica con clave de acceso SRI y envío por correo electrónico. | Must |
+| RF-PAG-01 | **Retirado (03/11/2026): la postulación es gratuita.** Procesamiento de pago con tarjeta de crédito/débito, validación de Luhn y pasarela mockeable. | Must |
+| RF-PAG-02 | **Retirado (03/11/2026): la postulación es gratuita.** Emisión automática de factura electrónica con clave de acceso SRI y envío por correo electrónico. | Must |
 
 ---
 
@@ -745,6 +745,8 @@ Cada sección tiene un botón **“Guardar progreso”** y muestra el estado `Gu
 
 ### 3.7.2 RF-PAG-01 — Procesamiento de pago de arancel con tarjeta de crédito/débito
 
+> **Retirado (03/11/2026).** La postulación al Directorio del BIESS es gratuita: no se cobra arancel ni tasa y no se emiten facturas. Esta sección se conserva solo como registro. Ver `db/migrations/002_eliminar_pagos.sql` y SRP-010 en `docs/TICKETS.md`.
+
 | Campo | Especificación |
 |---|---|
 | **Prioridad** | Must |
@@ -755,6 +757,8 @@ Cada sección tiene un botón **“Guardar progreso”** y muestra el estado `Gu
 | **Reglas** | RN-42. |
 
 ### 3.7.3 RF-PAG-02 — Emisión y envío automático de factura electrónica
+
+> **Retirado (03/11/2026).** La postulación al Directorio del BIESS es gratuita: no se cobra arancel ni tasa y no se emiten facturas. Esta sección se conserva solo como registro. Ver `db/migrations/002_eliminar_pagos.sql` y SRP-010 en `docs/TICKETS.md`.
 
 | Campo | Especificación |
 |---|---|

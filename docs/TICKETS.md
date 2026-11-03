@@ -234,6 +234,7 @@
 ---
 
 ### Ticket `SRP-010`: Pasarela de Pago con Tarjeta (Luhn) y Facturación SRI Mockeable
+* **Estado:** **Retirado (03/11/2026).** La postulación al Directorio del BIESS es gratuita: no se cobra arancel ni tasa y no se emiten facturas. Se eliminó el código (`domain/payment.go`, `application/payment_service.go`, `infrastructure/payments/`, `database/payment_repository.go`, `handlers/payment_handler.go` y la ruta `POST /postulaciones/{id}/pagos`), las tablas `transaccion_pago` y `factura`, sus tipos, la columna `postulacion.estado_arancel`, el valor `COMPROBANTE_PAGO` de `tipo_documento` y el campo `Cargo.Arancel`. En una base existente se aplica `db/migrations/002_eliminar_pagos.sql`. RF-PAG-01, RF-PAG-02, RN-42, RN-43 y el ADR-014 quedan marcados como retirados en el SRS y el SDD. Se conserva la descripción original solo como registro.
 * **Tipo:** Feature / Pagos
 * **Asignado:** Jose Daniel Gonzalez Cochea
 * **Rama:** `feature/mocks-payments-invoicing`
@@ -359,6 +360,7 @@
 ---
 
 ### Ticket `SRP-016`: Pantalla de Checkout / Pago de Arancel y Descarga de Comprobante
+* **Estado:** **No se implementa (fuera de alcance).** La postulación al Directorio del BIESS es gratuita y administrativa: la interfaz no debe aludir en ningún momento a un arancel, tasa o valor económico. El recorrido termina con la declaración jurada, el código único, el envío del resumen al correo y la entrega física del formulario impreso y firmado (SRP-013, SDD 8.5.8 y 8.5.9). Se conserva la descripción original solo como registro.
 * **Tipo:** Frontend Feature
 * **Asignado:** Carlos Fernando Patiño Garcia
 * **Rama:** `feature/cascading-selects-forms`

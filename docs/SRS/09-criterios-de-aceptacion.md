@@ -495,6 +495,8 @@ Escenario: Cédula con dígito verificador fraudulento o erróneo
 
 ## 9.19 Procesamiento de pago con tarjeta y emisión de factura
 
+> **Retirado (03/11/2026).** La postulación al Directorio del BIESS es gratuita: no se cobra arancel ni tasa y no se emiten facturas. Esta sección se conserva solo como registro. Ver `db/migrations/002_eliminar_pagos.sql` y SRP-010 en `docs/TICKETS.md`.
+
 **Característica:** Pago con tarjeta y facturación electrónica (Mockeable e Implementable).  
 **Referencias:** RF-PAG-01, RF-PAG-02, RN-42, RN-43, ADR-014.
 

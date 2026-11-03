@@ -145,8 +145,8 @@ Idempotency-Key: <uuid opcional>
 | DELETE | `/postulaciones/{id}/documentos/{docId}` | Sí | Elimina PDF. |
 | POST | `/postulaciones/{id}/guardar` | Sí | Valida y guarda. |
 | POST | `/postulaciones/{id}/enviar` | Sí | Envía postulación. |
-| POST | `/postulaciones/{id}/pagos` | Sí | Procesa pago con tarjeta (Luhn + Gateway). |
-| GET | `/postulaciones/{id}/factura` | Sí | Consulta y descarga de factura electrónica. |
+| POST | `/postulaciones/{id}/pagos` | Sí | **Retirado (03/11/2026).** Procesa pago con tarjeta (Luhn + Gateway). |
+| GET | `/postulaciones/{id}/factura` | Sí | **Retirado (03/11/2026).** Consulta y descarga de factura electrónica. |
 | POST | `/validaciones/cedula` | No | Validación algorítmica de cédula (Módulo 10). |
 | GET | `/postulaciones/{id}/pdf` | Sí | Descarga PDF. |
 | GET | `/postulaciones/{id}/resumen` | Sí | Resumen y estado. |
@@ -490,6 +490,8 @@ Idempotency-Key: <uuid opcional>
 
 ### 7.6.2 Procesamiento de pago con tarjeta
 
+> **Retirado (03/11/2026).** La postulación al Directorio del BIESS es gratuita: no se cobra arancel ni tasa y no se emiten facturas. Esta sección se conserva solo como registro. Ver `db/migrations/002_eliminar_pagos.sql` y SRP-010 en `docs/TICKETS.md`.
+
 `POST /postulaciones/{id}/pagos`
 
 ```json
@@ -526,6 +528,8 @@ Idempotency-Key: <uuid opcional>
 ```
 
 ### 7.6.3 Consulta de factura electrónica
+
+> **Retirado (03/11/2026).** La postulación al Directorio del BIESS es gratuita: no se cobra arancel ni tasa y no se emiten facturas. Esta sección se conserva solo como registro. Ver `db/migrations/002_eliminar_pagos.sql` y SRP-010 en `docs/TICKETS.md`.
 
 `GET /postulaciones/{id}/factura`
 
