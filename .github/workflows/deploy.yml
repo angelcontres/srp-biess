@@ -110,16 +110,6 @@ jobs:
           sleep 10
           docker compose -f docker-compose.prod.yml ps
 
-          echo "[*] Validando disponibilidad HTTP del Backend API (/health)..."
-          for i in $(seq 1 20); do
-            if curl -s -f http://localhost:8081/health > /dev/null || curl -s -f http://localhost:5173/api/health > /dev/null; then
-              echo "  [OK] Backend API respondiendo 200 en endpoint /health"
-              break
-            fi
-            echo "  Esperando al Backend ($i/20)..."
-            sleep 3
-          done
-
           echo "[*] Validando disponibilidad HTTP del Frontend Web (/healthz)..."
           for i in $(seq 1 15); do
             if curl -s -f http://localhost:5173/healthz > /dev/null; then
@@ -130,15 +120,25 @@ jobs:
             sleep 3
           done
 
+          echo "[*] Validando disponibilidad HTTP del Backend API a través de Nginx Reverse Proxy (/api/v1/health)..."
+          for i in $(seq 1 20); do
+            if curl -s -f http://localhost:5173/api/v1/health > /dev/null; then
+              echo "  [OK] Backend API respondiendo 200 en http://localhost:5173/api/v1/health"
+              break
+            fi
+            echo "  Esperando a la API ($i/20)..."
+            sleep 3
+          done
+
       - name: "Resumen de Despliegue"
         run: |
           echo "=========================================================="
           echo "  SRP-BIESS: DESPLIEGUE EXITOSO EN RUNNER SELF-HOSTED"
           echo "=========================================================="
-          echo " - Frontend SPA (Nginx): http://localhost:5173"
-          echo " - Backend API (Fiber):  http://localhost:8081 (y proxy http://localhost:5173/api)"
-          echo " - API Health Check:     http://localhost:8081/health"
+          echo " - Frontend SPA:         http://localhost:5173"
+          echo " - API REST (via Proxy): http://localhost:5173/api/v1"
+          echo " - Healthcheck API:      http://localhost:5173/api/v1/health"
           echo " - Mailpit Web UI:       http://localhost:8025"
-          echo " - PostgreSQL 16:        postgres:5432 (Red interna)"
-          echo " - Redis 7:              redis:6379 (Red interna)"
+          echo " - PostgreSQL 16:        postgres:5432 (Red interna segura)"
+          echo " - Redis 7:              redis:6379 (Red interna segura)"
           echo "=========================================================="

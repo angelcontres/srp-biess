@@ -69,7 +69,7 @@ services:
       - srp-network
 
   # -------------------------------------------------------------------
-  # Backend API: Go Fiber
+  # Backend API: Go Fiber (Red Interna, accesible vía Nginx Reverse Proxy)
   # -------------------------------------------------------------------
   api:
     build:
@@ -89,8 +89,8 @@ services:
       - APP_PORT=8080
       - STORAGE_LOCAL_PATH=/app/uploads
       - STORAGE_PATH=/app/storage
-    ports:
-      - "${API_PORT:-8081}:8080"
+    expose:
+      - "8080"
     volumes:
       - uploads_data:/app/uploads
       - storage_data:/app/storage
@@ -108,7 +108,7 @@ services:
       - srp-network
 
   # -------------------------------------------------------------------
-  # Frontend Web SPA: Nginx Reverse Proxy & Static Files
+  # Frontend Web SPA: Nginx Reverse Proxy & Static Files (Punto de Entrada Único)
   # -------------------------------------------------------------------
   web:
     build:
