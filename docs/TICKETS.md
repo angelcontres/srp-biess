@@ -149,7 +149,13 @@
   - [ ] Las cinco partes cerradas.
   - [ ] El recorrido completo (secciones 1 a 10, adjuntos y envío) funciona con `VITE_POSTULACION_MOCK` apagado.
   - [ ] `go build ./cmd/api` y `go test ./...` en verde, con las pruebas de integración contra PostgreSQL incluidas.
-* **Nota de revisión:** decisiones que hay que cerrar antes de codificar: persistencia de la `Idempotency-Key` (no hay tabla ni columna), estrategia de normalización (doble escritura, volcado al enviar o migrar y retirar el JSONB), fuente única de reglas de validación (duplicar Zod en Go es deuda) y cuotas de archivo (2 MB y 50 MB solo existen en la aplicación). El mapeo de secciones no es 1:1: `PUT /{id}/respaldo-organizacional` guarda la sección `cargo`, que contiene los datos de respaldo organizacional.
+* **Decisiones tomadas** (el detalle vive en cada sub-issue):
+  * **#39 Cargo:** la respuesta sigue entregando el objeto `elegibilidad` derivado que la SPA consume.
+  * **#40 Documentos:** carga y borrado solo en `BORRADOR` (otro estado responde 409); `FORMULARIO_POSTULACION` se rechaza con 400 porque lo genera el envío; firma `%PDF-` o 415; 4 MB respaldo, 2 MB resto y 50 MB acumulado, todo con 413. La base garantiza solo 4 MB (`ck_documento_tamano`, sin migración); el 2 MB y el acumulado son reglas de aplicación, y un rechazo del `CHECK` (`23514`) se traduce a 413, nunca 500. Cuota con `SELECT … FOR UPDATE` sobre la postulación. Descarga con doble validación, firma HMAC (`DOCUMENTOS_URL_SECRETO`, 5 min) y JWT: sin JWT 401, firma vencida o manipulada 403. La respuesta incluye `fechaCarga` desde `created_at`.
+  * **#41 Validación:** las reglas se definen por sección en una fuente única de la que derivan Go y la SPA. Pendiente: el formato de esa fuente.
+  * **#42 Normalización:** al enviar; el JSONB es la fuente durante el borrador y el volcado corre dentro de la transacción de #43.
+  * **#43 Envío:** tabla nueva para la `Idempotency-Key`, sin confiar en el estado. Pendiente: resolver el envío concurrente con la misma llave (`FOR UPDATE`, `UNIQUE` o ambos).
+* **Nota de revisión:** el mapeo de secciones no es 1:1: `PUT /{id}/respaldo-organizacional` guarda la sección `cargo`, que contiene los datos de respaldo organizacional.
 
 ---
 
