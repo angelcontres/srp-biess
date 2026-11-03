@@ -207,9 +207,9 @@
   * Llave: `srp:dev:auth:reg:attempts:{cedula}` con TTL de 600 segundos (10 min).
   * Al 3er intento fallido consecutivo: bloqueo automático y respuesta HTTP 423 con `Retry-After: 600`.
 * **Criterios de Aceptación:**
-  - [ ] Al 3er intento fallido consecutivo el sistema bloquea y responde con mensaje exacto del RF: *"registro fallido, inténtelo nuevamente en 10 minutos"*.
-  - [ ] Transcurridos los 10 minutos (TTL expira), el contador se reinicia automáticamente sin intervención manual.
-  - [ ] Demostrable en vivo mediante `redis-cli TTL`.
+  - [x] Al 3er intento fallido consecutivo el sistema bloquea y responde con mensaje exacto del RF: *"registro fallido, inténtelo nuevamente en 10 minutos"*.
+  - [x] Transcurridos los 10 minutos (TTL expira), el contador se reinicia automáticamente sin intervención manual.
+  - [x] Demostrable en vivo mediante `redis-cli TTL`.
 
 ---
 
@@ -219,8 +219,8 @@
 * **Rama:** `feature/redis-cache-lock`
 * **Descripción:** Implementar capa de caché en Redis para países, provincias y cantones con TTL de 24 horas y soporte de fallback resiliente a PostgreSQL si Redis no responde (ADR-005).
 * **Criterios de Aceptación:**
-  - [ ] Primera consulta busca en PostgreSQL y guarda en Redis; siguientes consultas leen de Redis en < 5 ms.
-  - [ ] Si el contenedor de Redis se detiene, la API degrada elegantemente consultando la base de datos sin caerse (RNF-DIS-04).
+  - [x] Primera consulta busca en PostgreSQL y guarda en Redis; siguientes consultas leen de Redis en < 5 ms.
+  - [x] Si el contenedor de Redis se detiene, la API degrada elegantemente consultando la base de datos sin caerse (RNF-DIS-04).
 
 ---
 
@@ -238,9 +238,9 @@
   * Tercer dígito menor a 6.
   * Ponderación alterna `[2,1,2,1,2,1,2,1,2]` y cálculo del dígito verificador.
 * **Criterios de Aceptación:**
-  - [ ] Cédulas con dígito verificador erróneo son rechazadas en milisegundos con HTTP 422 (*fail-fast*).
-  - [ ] No se realizan llamadas de red al Registro Civil si el algoritmo matemático falla.
-  - [ ] Pruebas unitarias cubriendo cédulas válidas e inválidas.
+  - [x] Cédulas con dígito verificador erróneo son rechazadas en milisegundos con HTTP 422 (*fail-fast*).
+  - [x] No se realizan llamadas de red al Registro Civil si el algoritmo matemático falla.
+  - [x] Pruebas unitarias cubriendo cédulas válidas e inválidas.
 
 ---
 
