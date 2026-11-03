@@ -203,8 +203,8 @@
 * **Rama:** `feature/redis-cache-lock`
 * **Descripción:** Implementar capa de caché en Redis para países, provincias y cantones con TTL de 24 horas y soporte de fallback resiliente a PostgreSQL si Redis no responde (ADR-005).
 * **Criterios de Aceptación:**
-  - [ ] Primera consulta busca en PostgreSQL y guarda en Redis; siguientes consultas leen de Redis en < 5 ms.
-  - [ ] Si el contenedor de Redis se detiene, la API degrada elegantemente consultando la base de datos sin caerse (RNF-DIS-04).
+  - [x] Primera consulta busca en PostgreSQL y guarda en Redis; siguientes consultas leen de Redis en < 5 ms.
+  - [x] Si el contenedor de Redis se detiene, la API degrada elegantemente consultando la base de datos sin caerse (RNF-DIS-04).
 
 ---
 
@@ -222,9 +222,9 @@
   * Tercer dígito menor a 6.
   * Ponderación alterna `[2,1,2,1,2,1,2,1,2]` y cálculo del dígito verificador.
 * **Criterios de Aceptación:**
-  - [ ] Cédulas con dígito verificador erróneo son rechazadas en milisegundos con HTTP 422 (*fail-fast*).
-  - [ ] No se realizan llamadas de red al Registro Civil si el algoritmo matemático falla.
-  - [ ] Pruebas unitarias cubriendo cédulas válidas e inválidas.
+  - [x] Cédulas con dígito verificador erróneo son rechazadas en milisegundos con HTTP 422 (*fail-fast*).
+  - [x] No se realizan llamadas de red al Registro Civil si el algoritmo matemático falla.
+  - [x] Pruebas unitarias cubriendo cédulas válidas e inválidas.
 
 ---
 
