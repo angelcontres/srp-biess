@@ -66,7 +66,7 @@ export default function ExperienciaSection() {
       {periodos.length > 0 ? (
         <div className="rounded-lg border border-line-strong bg-surface p-4 sm:p-6">
           <TiempoCalculado
-            etiqueta="Tiempo total de experiencia"
+            etiqueta="Usted ha trabajado:"
             valor={formatTiempo(totalReferencial(periodos))}
             ayuda="Es un valor referencial; la validación oficial la realiza el BIESS."
           />

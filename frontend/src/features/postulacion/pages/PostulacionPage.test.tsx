@@ -96,6 +96,25 @@ describe('PostulacionPage (SRP-013)', () => {
     expect(screen.queryByRole('button', { name: /Guardar progreso/ })).toBeNull();
   });
 
+  it('en escritorio el estado de guardado aparece una sola vez, en la columna de secciones', async () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query === '(min-width: 1024px)',
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    })) as unknown as typeof window.matchMedia;
+    try {
+      await abrirPersonal();
+      const estados = await screen.findAllByRole('status');
+      const guardado = estados.filter((el) => /guard/i.test(el.textContent ?? ''));
+      expect(guardado).toHaveLength(1);
+      expect(guardado[0]?.closest('aside')).not.toBeNull();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
   it('las secciones posteriores a Cargo aparecen como no disponibles sin elegibilidad', async () => {
     await abrirPersonal();
     const nav = screen.getAllByRole('navigation', { name: 'Secciones de la postulación' })[0] as HTMLElement;
