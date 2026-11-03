@@ -24,6 +24,14 @@ Ventanas modales para captura de información detallada (ej. formularios de íte
 
 ---
 
+## Contenido Más Alto que la Ventana
+
+- El panel nunca supera la altura de la ventana (`sm:max-h-full` dentro del overlay con `sm:p-4`; `h-full` en móvil).
+- Cabecera (título y cierre) y pie (botones) con `shrink-0`: siempre visibles.
+- Solo el cuerpo se desplaza: `min-h-0 flex-1 overflow-y-auto`, con su propia barra de scroll.
+
+---
+
 ## Diálogos de Confirmación Irreversible
 
 Para acciones críticas (eliminar un ítem, enviar la postulación definitiva):

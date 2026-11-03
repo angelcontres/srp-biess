@@ -91,6 +91,9 @@ function escribir(state: MockState): void {
 
 const esperar = (ms = LATENCIA_MS) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Uploaded files kept in memory so the mock can download and delete them (DEV only). */
+const documentos = new Map<string, { blob: Blob; url: string }>();
+
 function recalcularResumen(state: MockState): void {
   const { secciones } = state.postulacion;
   const editables = SECCIONES.filter(({ id }) => id !== 'resumen').map(({ id }) => id);
@@ -155,13 +158,31 @@ export const mockGateway: PostulacionGateway = {
       if (signal.aborted) throw new DOMException('Cancelado', 'AbortError');
       onProgress(percent);
     }
+    const id = `doc-${Date.now()}`;
+    const url = URL.createObjectURL(archivo);
+    documentos.set(id, { blob: archivo, url });
     return {
-      id: `doc-${Date.now()}`,
+      id,
       name: archivo.name,
       sizeBytes: archivo.size,
       uploadedAt: new Date().toISOString(),
-      url: URL.createObjectURL(archivo),
+      url,
     };
+  },
+
+  async eliminarDocumento(_id, docId) {
+    await esperar(400);
+    const guardado = documentos.get(docId);
+    if (guardado) URL.revokeObjectURL(guardado.url);
+    documentos.delete(docId);
+  },
+
+  async descargarDocumento(_id, docId) {
+    await esperar(400);
+    return (
+      documentos.get(docId)?.blob ??
+      new Blob(['%PDF-1.7\nDocumento simulado.'], { type: 'application/pdf' })
+    );
   },
 
   async enviar() {

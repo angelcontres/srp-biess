@@ -24,6 +24,8 @@ export interface PostulacionContextValue {
   irA: (seccion: SeccionId) => void;
   registrarGuard: (guard: SeccionGuard | null) => void;
   mostrarElegibilidad: (elegibilidad: Elegibilidad) => void;
+  /** Slot under the section list (>= 1024 px) where the current section shows its save status. */
+  slotGuardado: HTMLElement | null;
 }
 
 export const PostulacionContext = createContext<PostulacionContextValue | null>(null);

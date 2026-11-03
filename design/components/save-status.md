@@ -1,6 +1,11 @@
 # Indicador de Guardado (Save Status)
 
-Elemento accesible ubicado junto a los botones de navegación al pie del formulario, que informa sobre la sincronización con la base de datos.
+Elemento accesible que informa sobre la sincronización con la base de datos:
+
+- **≥ 1024 px:** debajo de la lista de secciones, en la columna lateral sticky, para que esté siempre a la vista.
+- **< 1024 px:** junto a los botones de navegación, al pie del formulario.
+
+Se renderiza una sola vez según el ancho (nunca dos regiones `role="status"` a la vez).
 
 ---
 
