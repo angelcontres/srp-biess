@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
 	"testing"
 	"time"
 
@@ -11,8 +15,31 @@ import (
 	"srp-biess/internal/infrastructure/database"
 )
 
-// Prueba de integración del formulario (SRP-013). Requiere PostgreSQL y la migración
-// db/migrations/001_postulacion_seccion.sql; si falta alguno, se omite.
+// aplicarMigraciones ejecuta db/migrations/*.sql en orden. Son idempotentes, por lo que la
+// prueba funciona también con volúmenes de PostgreSQL creados antes de la migración
+// (docker-entrypoint-initdb.d solo ejecuta db/init.sql sobre un volumen vacío).
+func aplicarMigraciones(ctx context.Context, t *testing.T, exec func(context.Context, string) error) {
+	t.Helper()
+	_, archivo, _, _ := runtime.Caller(0)
+	dir := filepath.Join(filepath.Dir(archivo), "..", "..", "..", "db", "migrations")
+	rutas, err := filepath.Glob(filepath.Join(dir, "*.sql"))
+	if err != nil || len(rutas) == 0 {
+		t.Fatalf("no se encontraron migraciones en %s: %v", dir, err)
+	}
+	sort.Strings(rutas)
+	for _, ruta := range rutas {
+		sql, err := os.ReadFile(ruta)
+		if err != nil {
+			t.Fatalf("leer %s: %v", ruta, err)
+		}
+		if err := exec(ctx, string(sql)); err != nil {
+			t.Fatalf("aplicar %s: %v", filepath.Base(ruta), err)
+		}
+	}
+}
+
+// Prueba de integración del formulario (SRP-013). Requiere PostgreSQL; aplica las
+// migraciones de db/migrations antes de ejecutarse.
 func TestFormularioRepository_Integracion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -22,12 +49,14 @@ func TestFormularioRepository_Integracion(t *testing.T) {
 		t.Skipf("PostgreSQL no disponible: %v", err)
 	}
 	defer pool.Close()
-
-	var existe bool
-	_ = pool.QueryRow(ctx, `SELECT to_regclass('public.postulacion_seccion') IS NOT NULL`).Scan(&existe)
-	if !existe {
-		t.Skip("Falta la tabla postulacion_seccion: ejecute db/migrations/001_postulacion_seccion.sql")
+	if err := pool.Ping(ctx); err != nil {
+		t.Skipf("PostgreSQL no disponible: %v", err)
 	}
+
+	aplicarMigraciones(ctx, t, func(ctx context.Context, sql string) error {
+		_, err := pool.Exec(ctx, sql)
+		return err
+	})
 
 	sufijo := time.Now().UnixNano()
 	postulante := &domain.Postulante{

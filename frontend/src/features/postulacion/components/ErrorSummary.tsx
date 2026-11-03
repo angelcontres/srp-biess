@@ -46,7 +46,7 @@ export default function ErrorSummary({ errores, intento }: ErrorSummaryProps) {
                 event.preventDefault();
                 focusField(error.id);
               }}
-              className="text-danger hover:text-danger"
+              className="inline-flex min-h-11 items-center text-danger hover:text-danger"
             >
               {error.message}
             </a>

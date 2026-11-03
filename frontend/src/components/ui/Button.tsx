@@ -49,7 +49,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({
   onClick,
   ...rest
 }, ref) {
-  const paddingClasses = variant === 'tertiary' ? 'h-auto px-0' : sizeClasses[size];
+  const paddingClasses = variant === 'tertiary' ? 'min-h-11 px-0' : sizeClasses[size];
 
   return (
     <button
