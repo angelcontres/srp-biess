@@ -41,19 +41,12 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 		}, cfg.AuthHandler.ValidarCedula)
 		auth.Post("/login", cfg.AuthHandler.Login)
 		auth.Post("/refresh", cfg.AuthHandler.Refresh)
-		// Se registra antes del grupo protegido para que no la alcance el middleware JWT (ver TODO SRP-018).
 		auth.Post("/registro/validar-identidad", cfg.AuthHandler.ValidarIdentidadRegistro)
 
 		// Endpoints protegidos con Access Token JWT (15 min)
 		if cfg.AuthService != nil {
-			// TODO(backend: SRP-018): Group("", JWTProtected) aplica el middleware a TODO /api/v1/auth/*,
-			// así que cualquier ruta inexistente bajo /auth responde 401 "Cabecera Authorization no
-			// proporcionada" en vez de 404 (le pasó al registro de SRP-012 antes de existir /registro/validar-identidad).
-			// Sugerencia: registrar el middleware por ruta, p. ej.
-			//   auth.Get("/me", middleware.JWTProtected(cfg.AuthService), cfg.AuthHandler.Me)
-			protected := auth.Group("", middleware.JWTProtected(cfg.AuthService))
-			protected.Get("/me", cfg.AuthHandler.Me)
-			protected.Post("/logout", cfg.AuthHandler.Logout)
+			auth.Get("/me", middleware.JWTProtected(cfg.AuthService), cfg.AuthHandler.Me)
+			auth.Post("/logout", middleware.JWTProtected(cfg.AuthService), cfg.AuthHandler.Logout)
 		}
 	}
 
@@ -81,8 +74,6 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 
 	// -----------------------------------------------------------------
 	// Formulario de postulación (SDD 7.3.4): integración mínima de SRP-013.
-	// El JWT se aplica por grupo con prefijo propio, así que las rutas inexistentes
-	// bajo /postulaciones responden 404 y no 401.
 	// TODO(backend: SRP-017): documentos (#40) y envío (#43).
 	// -----------------------------------------------------------------
 	if cfg.PostulacionHandler != nil && cfg.AuthService != nil {
