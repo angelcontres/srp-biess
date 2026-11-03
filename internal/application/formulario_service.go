@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"srp-biess/internal/domain"
 )
@@ -14,11 +15,18 @@ var ErrPersistenciaNoDisponible = errors.New("la persistencia de postulaciones n
 // FormularioService orquesta la creación, consulta y guardado por secciones del
 // formulario de postulación (SRP-013, integración mínima de SDD 7.3.4).
 type FormularioService struct {
-	repo domain.FormularioRepository
+	repo         domain.FormularioRepository
+	catalogoRepo domain.CatalogoRepository
 }
 
 func NewFormularioService(repo domain.FormularioRepository) *FormularioService {
 	return &FormularioService{repo: repo}
+}
+
+// WithCatalogoRepository inyecta el repositorio de catálogos para resolver dinámicamente identificadores oficiales.
+func (s *FormularioService) WithCatalogoRepository(catRepo domain.CatalogoRepository) *FormularioService {
+	s.catalogoRepo = catRepo
+	return s
 }
 
 func (s *FormularioService) disponible() error {
@@ -86,7 +94,19 @@ func (s *FormularioService) GuardarSeccion(
 			ctxPostulante.CedulaPostulante = detalle.Verificados.Cedula
 			ctxPostulante.CorreoPrincipal = detalle.Verificados.Correo
 		}
-		ctxPostulante.PaisEcuadorID = "EC"
+
+		// Identificación de Ecuador por catálogo o valor estándar de la semilla (id 52 en db/init.sql / ISO "EC")
+		ctxPostulante.PaisEcuadorID = "52"
+		if s.catalogoRepo != nil {
+			if paises, err := s.catalogoRepo.GetPaises(ctx); err == nil {
+				for _, p := range paises {
+					if strings.EqualFold(p.Codigo, "EC") {
+						ctxPostulante.PaisEcuadorID = p.ID
+						break
+					}
+				}
+			}
+		}
 
 		if err := domain.ValidarSeccion(seccion, datos, ctxPostulante); err != nil {
 			return nil, err

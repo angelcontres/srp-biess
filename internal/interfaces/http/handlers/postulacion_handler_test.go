@@ -184,9 +184,9 @@ func TestPostulacionHandler_Flujo(t *testing.T) {
 		}
 	})
 
-	t.Run("RF-EF12-24: marca COMPLETA cuando los campos están completos y válidos (HTTP 200)", func(t *testing.T) {
+	t.Run("RF-EF12-24: marca COMPLETA cuando los campos están completos con paisId=52 de la semilla (HTTP 200)", func(t *testing.T) {
 		datosValidos := map[string]any{
-			"paisId":          "EC",
+			"paisId":          "52",
 			"provinciaId":     "17",
 			"cantonId":        "1701",
 			"telefonoCelular": "0991234567",
@@ -280,7 +280,25 @@ func TestPostulacionHandler_ValidacionSecciones(t *testing.T) {
 		}
 	})
 
-	// 2. Familiares
+	// 2. Domicilio con paisId = 52
+	t.Run("sección domicilio con paisId=52 (Ecuador) completa responde 200", func(t *testing.T) {
+		status, _ := llamar(t, app, http.MethodPut, base+"/"+id+"/domicilio", token,
+			map[string]any{
+				"paisId":          "52",
+				"provinciaId":     "17",
+				"cantonId":        "1701",
+				"telefonoCelular": "0991234567",
+				"callePrincipal":  "Av. Amazonas",
+				"numero":          "N24-50",
+				"version":         repo.estado.Version,
+				"completa":        true,
+			})
+		if status != http.StatusOK || !repo.completas["domicilio"] {
+			t.Fatalf("esperado 200 OK con paisId=52 y completa true, obtenido %d", status)
+		}
+	})
+
+	// 3. Familiares
 	t.Run("sección familiares responde 422 si falta pregunta", func(t *testing.T) {
 		status, body := llamar(t, app, http.MethodPut, base+"/"+id+"/familiares", token,
 			map[string]any{"version": repo.estado.Version, "completa": true})
@@ -297,7 +315,7 @@ func TestPostulacionHandler_ValidacionSecciones(t *testing.T) {
 		}
 	})
 
-	// 3. Respaldo organizacional (cargo)
+	// 4. Respaldo organizacional (cargo)
 	t.Run("sección cargo incompleta responde 422", func(t *testing.T) {
 		status, _ := llamar(t, app, http.MethodPut, base+"/"+id+"/respaldo-organizacional", token,
 			map[string]any{"tieneRespaldo": "SI", "version": repo.estado.Version, "completa": true})
@@ -314,7 +332,7 @@ func TestPostulacionHandler_ValidacionSecciones(t *testing.T) {
 		}
 	})
 
-	// 4. Formación académica
+	// 5. Formación académica
 	t.Run("sección formacion vacía responde 422", func(t *testing.T) {
 		status, _ := llamar(t, app, http.MethodPut, base+"/"+id+"/formacion-academica", token,
 			map[string]any{"formaciones": []any{}, "version": repo.estado.Version, "completa": true})
@@ -323,7 +341,7 @@ func TestPostulacionHandler_ValidacionSecciones(t *testing.T) {
 		}
 	})
 
-	// 5. Inhabilidades
+	// 6. Inhabilidades
 	t.Run("sección inhabilidades incompleta responde 422", func(t *testing.T) {
 		status, _ := llamar(t, app, http.MethodPut, base+"/"+id+"/inhabilidades", token,
 			map[string]any{"respuestas": []string{"NO"}, "version": repo.estado.Version, "completa": true})

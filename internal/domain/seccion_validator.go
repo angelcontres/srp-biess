@@ -31,7 +31,8 @@ func (e *ErrorValidacionSeccion) Error() string {
 type ContextoPostulante struct {
 	CedulaPostulante string
 	CorreoPrincipal  string
-	PaisEcuadorID    string
+	PaisEcuadorID    string // Ej: "52" (db/init.sql) o "EC" (ISO 2)
+	EsPaisEcuador    func(paisID string) bool
 }
 
 var (
@@ -72,6 +73,22 @@ func esDocumentoValido(raw json.RawMessage) bool {
 	}
 	var strID string
 	if err := json.Unmarshal(raw, &strID); err == nil && strings.TrimSpace(strID) != "" {
+		return true
+	}
+	return false
+}
+
+// esPaisEcuador verifica si el identificador o código corresponde a Ecuador.
+func esPaisEcuador(pais string, ctx ContextoPostulante) bool {
+	if ctx.EsPaisEcuador != nil && ctx.EsPaisEcuador(pais) {
+		return true
+	}
+	p := strings.TrimSpace(pais)
+	// Reconocimiento por código ISO "EC", ID oficial de semilla 52 (db/init.sql), ID 1 (legacy)
+	if p == "EC" || p == "52" || p == "1" {
+		return true
+	}
+	if ctx.PaisEcuadorID != "" && (p == ctx.PaisEcuadorID || strings.EqualFold(p, ctx.PaisEcuadorID)) {
 		return true
 	}
 	return false
@@ -172,8 +189,7 @@ func validarDomicilio(datos []byte, ctx ContextoPostulante) []ErrorCampo {
 	if pais == "" {
 		errs = append(errs, ErrorCampo{Campo: "paisId", Mensaje: "Seleccione el país de residencia."})
 	} else {
-		esEcuador := pais == "EC" || pais == "1" || (ctx.PaisEcuadorID != "" && pais == ctx.PaisEcuadorID)
-		if esEcuador {
+		if esPaisEcuador(pais, ctx) {
 			if strings.TrimSpace(d.ProvinciaID) == "" {
 				errs = append(errs, ErrorCampo{Campo: "provinciaId", Mensaje: "Seleccione la provincia."})
 			}

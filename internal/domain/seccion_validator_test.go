@@ -118,7 +118,7 @@ func TestValidarSeccion_Personal(t *testing.T) {
 
 func TestValidarSeccion_Domicilio(t *testing.T) {
 	ctx := domain.ContextoPostulante{
-		PaisEcuadorID:   "EC",
+		PaisEcuadorID:   "52",
 		CorreoPrincipal: "postulante@biess.gob.ec",
 	}
 
@@ -141,7 +141,7 @@ func TestValidarSeccion_Domicilio(t *testing.T) {
 		}
 	})
 
-	t.Run("domicilio en Ecuador completo pasa", func(t *testing.T) {
+	t.Run("domicilio en Ecuador completo con codigo EC pasa", func(t *testing.T) {
 		datos := []byte(`{
 			"paisId": "EC",
 			"provinciaId": "17",
@@ -152,6 +152,44 @@ func TestValidarSeccion_Domicilio(t *testing.T) {
 		}`)
 		if err := domain.ValidarSeccion("domicilio", datos, ctx); err != nil {
 			t.Fatalf("esperado válido, obtenido: %v", err)
+		}
+	})
+
+	t.Run("domicilio en Ecuador completo con paisId=52 (semilla db/init.sql) pasa con provincia y cantón", func(t *testing.T) {
+		datos := []byte(`{
+			"paisId": "52",
+			"provinciaId": "17",
+			"cantonId": "1701",
+			"telefonoCelular": "0991234567",
+			"callePrincipal": "Av. 10 de Agosto",
+			"numero": "N24-50"
+		}`)
+		if err := domain.ValidarSeccion("domicilio", datos, ctx); err != nil {
+			t.Fatalf("esperado válido para paisId 52, obtenido: %v", err)
+		}
+	})
+
+	t.Run("domicilio en Ecuador con paisId=52 sin provincia ni cantón no exige campos manuales", func(t *testing.T) {
+		datos := []byte(`{
+			"paisId": "52",
+			"telefonoCelular": "0991234567",
+			"callePrincipal": "Av. 10 de Agosto",
+			"numero": "N24-50"
+		}`)
+		err := domain.ValidarSeccion("domicilio", datos, ctx)
+		if err == nil {
+			t.Fatal("esperaba error por falta de provincia y cantón")
+		}
+		valErr := err.(*domain.ErrorValidacionSeccion)
+		campos := map[string]bool{}
+		for _, d := range valErr.Detalles {
+			campos[d.Campo] = true
+		}
+		if !campos["provinciaId"] || !campos["cantonId"] {
+			t.Fatalf("esperaba errores en provinciaId y cantonId, obtenido: %+v", valErr.Detalles)
+		}
+		if campos["provinciaManual"] || campos["ciudadManual"] {
+			t.Fatalf("para paisId=52 no deben exigirse campos manuales, obtenido: %+v", valErr.Detalles)
 		}
 	})
 
