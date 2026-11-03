@@ -66,6 +66,36 @@
 
 ---
 
+### Ticket `SRP-018`: El middleware JWT del grupo `/auth` convierte rutas inexistentes en 401
+* **Tipo:** Bug / Backend
+* **Asignado:** [PENDIENTE: por asignar]
+* **Rama:** `fix/auth-jwt-route-scope`
+* **Origen:** pendiente de SRP-003 (issue cerrado). Detectado en SRP-012: con un backend sin la ruta `/auth/registro/validar-identidad`, el registro respondía 401 "Cabecera Authorization no proporcionada" en lugar de 404, lo que ocultó la causa real.
+* **Descripción:** en `internal/interfaces/http/router.go`, `auth.Group("", middleware.JWTProtected(...))` aplica el middleware a todo `/api/v1/auth/*`. Registrar el middleware por ruta (`auth.Get("/me", middleware.JWTProtected(cfg.AuthService), cfg.AuthHandler.Me)`, ídem `/logout`), como ya se hace con el grupo con prefijo propio de `/postulaciones`.
+* **Criterios de Aceptación:**
+  - [ ] Una ruta inexistente bajo `/api/v1/auth/` responde 404.
+  - [ ] `/auth/me` y `/auth/logout` siguen respondiendo 401 sin token.
+  - [ ] Prueba de handler que cubre ambos casos.
+
+---
+
+### Ticket `SRP-020`: Política CORS y prueba de middlewares desalineadas
+* **Tipo:** Bug / Backend
+* **Asignado:** [PENDIENTE: por asignar]
+* **Rama:** `fix/cors-policy`
+* **Origen:** pendiente de SRP-001 (issue cerrado, criterio "CORS configurado"). `go test ./...` falla en `TestMiddlewares/Headers_CORS_y_Request-ID_presentes`.
+* **Descripción:** en `internal/interfaces/http/middleware/cors.go`:
+  * La prueba espera `Access-Control-Allow-Origin: *` con origen `http://localhost:5173`, pero la política usa orígenes explícitos con `AllowCredentials: true` (correcto: con credenciales no se admite `*`). Se debe actualizar la prueba, no la política.
+  * Errata en el origen permitido: `http://127.0.0.1:300` debe ser `http://127.0.0.1:3000`.
+  * Leer los orígenes desde una variable de entorno (por ejemplo `CORS_ALLOWED_ORIGINS`, SDD 16.4) en lugar de fijarlos en código.
+  * Exponer `Retry-After` (`ExposeHeaders`) para que la SPA lea la duración del bloqueo 423 cuando se sirve desde otro origen (SRP-006, SRP-012).
+* **Criterios de Aceptación:**
+  - [ ] `go test ./internal/interfaces/http/middleware` pasa.
+  - [ ] Una petición desde un origen permitido recibe `Access-Control-Allow-Origin` con ese origen y `Access-Control-Allow-Credentials: true`; un origen no permitido no lo recibe.
+  - [ ] `Access-Control-Expose-Headers` incluye `Retry-After`.
+
+---
+
 ## Épica 2: Persistencia Relacional & Transacciones Atómicas (PostgreSQL)
 **Responsable Principal:** Angel Alejandro Villon Panimboza  
 **Ponderación Rúbrica:** 8.0 Puntos
@@ -90,6 +120,43 @@
   - [x] El guardado y envío de postulación actualiza el estado, genera código único, crea el PDF y encola la notificación en una sola transacción atómica.
   - [x] Si falla la inserción del documento o del correo, se ejecuta `ROLLBACK` total y la base queda intacta.
   - [x] Prueba de integración verificando el rollback forzado.
+
+---
+
+### Ticket `SRP-017`: API REST de Postulación — Cargo, Documentos, Envío y Persistencia Normalizada
+* **Tipo:** Feature / Backend
+* **Asignado:** [PENDIENTE: por asignar]
+* **Rama:** `feature/postulacion-api`
+* **Origen:** detectado al cerrar SRP-013. Ningún ticket asignaba estos endpoints de SDD 7.3.4, y el formulario los necesita para funcionar de extremo a extremo con datos reales. La base ya existe: los endpoints de borrador y guardado por sección (ver SRP-013) y los catálogos (ver SRP-014).
+* **Dependencias:** SRP-005 (`TxManager`) para el envío; SRP-009 (mock de Historial Laboral IESS) para la elegibilidad.
+* **Descripción:** Exponer, protegidos con JWT y respetando las capas de ADR-003:
+  * `PUT /api/v1/postulaciones/{id}/cargo`: confirma el cargo (definitivo), valida la elegibilidad con `EligibilityService` y guarda `cargo_id`, `elegibilidad_estado` (`ELEGIBLE` / `NO_ELEGIBLE`) y `elegibilidad_motivo`. Si no cumple, la postulación pasa a `NO_ELEGIBLE`; si el IESS no responde, 503 sin marcar `NO_ELEGIBLE` (RF-EF12-09, RF-EF12-10, SDD 7.5.4). La SPA ya lee estos campos en `elegibilidad`.
+  * `POST /api/v1/postulaciones/{id}/documentos` y `DELETE /api/v1/postulaciones/{id}/documentos/{docId}`: carga `multipart/form-data` (`archivo`, `tipo`), validación de MIME real (`%PDF-`), 4 MB para respaldo organizacional, 2 MB para el resto, 50 MB acumulados; nombre UUID, hash SHA-256 y URL de descarga firmada (RF-EF12-17, SDD 7.5.5). Respuesta: `{ id, nombreOriginal, tamanoBytes, urlDescarga }`.
+  * `POST /api/v1/postulaciones/{id}/enviar` con `Idempotency-Key`: usa el `TxManager` de SRP-005 para cambiar el estado, generar el código único y el PDF y encolar el correo en una sola transacción (RF-EF12-19, SDD 7.5.7). Respuesta: `{ codigoUnico, estado, fechaEnvio, pdfUrl }`.
+  * Validación en servidor de cada sección antes de marcarla `COMPLETA` (RF-EF12-24). Hoy la completitud la informa el cliente.
+  * Normalizar las secciones guardadas en `postulacion_seccion` (JSONB transitorio) hacia las tablas de SDD 4.6 (`pareja_postulante`, `domicilio_postulante`, `familiar_institucion`, `respaldo_organizacional`, `formacion_academica`, `experiencia_profesional`, `publicacion`, `capacitacion`, `inhabilidad_respuesta`).
+* **Criterios de Aceptación:**
+  - [ ] Al confirmar el cargo, el resultado de elegibilidad queda guardado y la SPA habilita (o bloquea) las secciones 5 a 10 sin el simulador.
+  - [ ] Un PDF válido se sube y la SPA muestra su nombre, tamaño y fecha; un archivo no PDF o que excede el límite se rechaza con 415 / 413.
+  - [ ] El envío es atómico e idempotente: un segundo envío devuelve el mismo código y no duplica registros.
+  - [ ] Una sección con datos inválidos enviada directamente a la API (sin la SPA) no se marca `COMPLETA`.
+  - [ ] Pruebas de integración contra PostgreSQL para cargo, documentos y envío.
+
+---
+
+### Ticket `SRP-019`: Catálogo Geográfico Completo con Códigos Oficiales del INEC
+* **Tipo:** Data / Seed
+* **Asignado:** [PENDIENTE: por asignar]
+* **Rama:** `feature/catalogo-geografico-inec`
+* **Origen:** pendiente de SRP-004 (issue cerrado), detectado en SRP-014.
+* **Descripción:** `db/init.sql` trae 194 países, las 24 provincias del Ecuador con códigos INEC y 199 cantones asignados a su provincia, pero:
+  * el sufijo del código de cantón es secuencial dentro de la provincia, no el código oficial;
+  * faltan cantones en varias provincias (entre otros Azuay, Guayas, Loja, Morona Santiago, Chimborazo, Los Ríos y Santa Elena);
+  * el `CHECK ck_domicilio_pais_ec` de `domicilio_postulante` depende del id de Ecuador en la semilla (`52`).
+* **Criterios de Aceptación:**
+  - [ ] Los 221 cantones vigentes con su código oficial del INEC, cargados desde una fuente citada en el script.
+  - [ ] El script sigue siendo idempotente (se puede ejecutar dos veces sin errores).
+  - [ ] La restricción de domicilio identifica a Ecuador sin depender de un id fijo (por ejemplo, con un trigger que compare `codigo_iso2 = 'EC'`).
 
 ---
 
@@ -230,7 +297,7 @@
   * **Almacenamiento transitorio:** cada sección se guarda como JSONB en la tabla nueva `postulacion_seccion` (`db/migrations/001_postulacion_seccion.sql`, también añadida a `db/init.sql`). En una base existente se aplica con `docker exec -i srp-biess-postgres psql -U srp_user -d srp_biess < db/migrations/001_postulacion_seccion.sql`. La prueba `TestFormularioRepository_Integracion` aplica `db/migrations/*.sql` (idempotentes) antes de ejecutarse, por lo que no depende de este paso manual.
   * **Usuario de prueba (solo desarrollo):** `db/seeds/postulante_prueba.sql` crea el postulante `0926687856` / `BiessPostulante2026*` (idempotente). Se aplica con `docker exec -i srp-biess-postgres psql -U srp_user -d srp_biess < db/seeds/postulante_prueba.sql`. No se incluye en `db/init.sql` para que no llegue a otros entornos.
   * El guardado es atómico en una sola sentencia SQL (versión + sección), sin depender del `TxManager`.
-  * **Pendiente para SRP-005:** normalizar las secciones en las tablas de SDD 4.6; validar en servidor cada sección (RF-EF12-24; hoy la completitud la informa el cliente); `PUT /cargo` con elegibilidad, `/documentos`, `/guardar` y `/enviar`. Los catálogos geográficos se documentan en SRP-014.
+  * **Pendiente en SRP-017:** `PUT /cargo` con elegibilidad, `/documentos`, `/enviar` (con el `TxManager` de SRP-005), validación de cada sección en servidor y normalización de las secciones en las tablas de SDD 4.6. Mientras tanto, el recorrido completo (secciones 5 a 10, adjuntos y envío) se demuestra con `VITE_POSTULACION_MOCK=true npm run dev`. Los catálogos geográficos se documentan en SRP-014.
 
 ---
 
@@ -254,7 +321,7 @@
 
   | Método | Ruta | Respuesta |
   |---|---|---|
-  | GET | `/api/v1/catalogos/paises` | Países activos `[{ id, nombre }]`. |
+  | GET | `/api/v1/catalogos/paises` | Países activos `[{ id, nombre, codigo }]`. |
   | GET | `/api/v1/catalogos/paises/{paisId}/provincias` | Provincias del país (24 para Ecuador). |
   | GET | `/api/v1/catalogos/provincias/{provinciaId}/cantones` | Solo los cantones de esa provincia; `[]` si no tiene. |
 
@@ -262,7 +329,7 @@
   * Prueba de integración contra el seed: `go test ./internal/interfaces/http/handlers -run Catalogo -v`.
   * **Pendiente para SRP-007:** caché cache-aside en Redis (TTL 24 h) con fallback a PostgreSQL.
   * `GET /catalogos/paises` incluye `codigo` (ISO 3166-1 alfa-2): la SPA reconoce a Ecuador por `EC` y no por su id (en la semilla actual, `id = 52`).
-  * **Semilla (`db/init.sql`):** 194 países, las 24 provincias del Ecuador con códigos INEC y 199 cantones asignados a su provincia. **Pendiente (SRP-004):** el sufijo del código de cantón es secuencial y faltan cantones en algunas provincias (por ejemplo Azuay, Guayas, Loja, Morona Santiago y Santa Elena); el catálogo productivo debe cargarse desde la fuente oficial del INEC.
+  * **Semilla (`db/init.sql`):** 194 países, las 24 provincias del Ecuador con códigos INEC y 199 cantones asignados a su provincia. Los códigos oficiales de cantón y los cantones faltantes quedan en SRP-019.
 
 ---
 

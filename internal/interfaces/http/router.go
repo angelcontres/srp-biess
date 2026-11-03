@@ -40,12 +40,12 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 		auth.Post("/validate-cedula", cfg.AuthHandler.ValidarCedula)
 		auth.Post("/login", cfg.AuthHandler.Login)
 		auth.Post("/refresh", cfg.AuthHandler.Refresh)
-		// Se registra antes del grupo protegido para que no la alcance el middleware JWT (ver TODO SRP-003).
+		// Se registra antes del grupo protegido para que no la alcance el middleware JWT (ver TODO SRP-018).
 		auth.Post("/registro/validar-identidad", cfg.AuthHandler.ValidarIdentidadRegistro)
 
 		// Endpoints protegidos con Access Token JWT (15 min)
 		if cfg.AuthService != nil {
-			// TODO(backend: SRP-003): Group("", JWTProtected) aplica el middleware a TODO /api/v1/auth/*,
+			// TODO(backend: SRP-018): Group("", JWTProtected) aplica el middleware a TODO /api/v1/auth/*,
 			// así que cualquier ruta inexistente bajo /auth responde 401 "Cabecera Authorization no
 			// proporcionada" en vez de 404 (le pasó al registro de SRP-012 antes de existir /registro/validar-identidad).
 			// Sugerencia: registrar el middleware por ruta, p. ej.
