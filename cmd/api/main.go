@@ -17,6 +17,7 @@ import (
 	"srp-biess/internal/infrastructure/cache"
 	"srp-biess/internal/infrastructure/database"
 	"srp-biess/internal/infrastructure/external"
+	"srp-biess/internal/infrastructure/payments"
 	interfacesHTTP "srp-biess/internal/interfaces/http"
 	"srp-biess/internal/interfaces/http/handlers"
 	"srp-biess/internal/interfaces/http/middleware"
@@ -104,6 +105,16 @@ func main() {
 	if catalogoRepo != nil {
 		catalogoService = application.NewCatalogoService(catalogoRepo)
 	}
+	var paymentRepository domain.PaymentRepository = payments.NewMemoryPaymentRepository()
+	if pool != nil {
+		paymentRepository = database.NewPostgresPaymentRepository(pool)
+	}
+	paymentService := application.NewPaymentService(
+		txManager,
+		payments.NewMockPaymentGateway(),
+		payments.NewMockInvoicingService(),
+		paymentRepository,
+	)
 
 	// =========================================================================
 	// FASE 6: Capa de Presentación (Handlers HTTP & DTOs)
@@ -113,6 +124,7 @@ func main() {
 	eligibilityHandler := handlers.NewEligibilityHandler(eligibilityService)
 	postulacionHandler := handlers.NewPostulacionHandler(formularioService)
 	catalogoHandler := handlers.NewCatalogoHandler(catalogoService)
+	paymentHandler := handlers.NewPaymentHandler(paymentService)
 
 	// =========================================================================
 	// FASE 7: Servidor Fiber & Middlewares Globales (SRP-001)
@@ -139,6 +151,7 @@ func main() {
 		EligibilityHandler: eligibilityHandler,
 		PostulacionHandler: postulacionHandler,
 		CatalogoHandler:    catalogoHandler,
+		PaymentHandler:     paymentHandler,
 		AuthService:        authService,
 	})
 
