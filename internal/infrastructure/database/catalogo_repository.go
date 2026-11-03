@@ -25,9 +25,13 @@ func (r *PostgresCatalogoRepository) WithQuerier(q Querier) *PostgresCatalogoRep
 	return &PostgresCatalogoRepository{q: q}
 }
 
+func (r *PostgresCatalogoRepository) getQuerier(ctx context.Context) Querier {
+	return ExtractQuerier(ctx, r.q)
+}
+
 func (r *PostgresCatalogoRepository) GetPaises(ctx context.Context) ([]domain.Pais, error) {
 	query := `SELECT id, codigo_iso2, nombre FROM pais WHERE activo = true ORDER BY nombre ASC`
-	rows, err := r.q.Query(ctx, query)
+	rows, err := r.getQuerier(ctx).Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error consultando paises: %w", err)
 	}
@@ -57,7 +61,7 @@ func (r *PostgresCatalogoRepository) GetProvincias(ctx context.Context, paisID s
 		return nil, fmt.Errorf("pais_id inválido: %w", err)
 	}
 
-	rows, err := r.q.Query(ctx, query, pid)
+	rows, err := r.getQuerier(ctx).Query(ctx, query, pid)
 	if err != nil {
 		return nil, fmt.Errorf("error consultando provincias: %w", err)
 	}
@@ -88,7 +92,7 @@ func (r *PostgresCatalogoRepository) GetCantones(ctx context.Context, provinciaI
 		return nil, fmt.Errorf("provincia_id inválido: %w", err)
 	}
 
-	rows, err := r.q.Query(ctx, query, prID)
+	rows, err := r.getQuerier(ctx).Query(ctx, query, prID)
 	if err != nil {
 		return nil, fmt.Errorf("error consultando cantones: %w", err)
 	}
@@ -113,7 +117,7 @@ func (r *PostgresCatalogoRepository) GetCantones(ctx context.Context, provinciaI
 
 func (r *PostgresCatalogoRepository) GetCargos(ctx context.Context) ([]domain.Cargo, error) {
 	query := `SELECT id, codigo, nombre, activo FROM cargo WHERE activo = true ORDER BY id ASC`
-	rows, err := r.q.Query(ctx, query)
+	rows, err := r.getQuerier(ctx).Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("error consultando cargos: %w", err)
 	}
@@ -148,7 +152,7 @@ func (r *PostgresCatalogoRepository) GetCargoByID(ctx context.Context, id string
 	var cargoID int
 	var codigo, nombre string
 	var activo bool
-	err = r.q.QueryRow(ctx, query, cID).Scan(&cargoID, &codigo, &nombre, &activo)
+	err = r.getQuerier(ctx).QueryRow(ctx, query, cID).Scan(&cargoID, &codigo, &nombre, &activo)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, domain.ErrNotFound
