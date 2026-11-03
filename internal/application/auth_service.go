@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"sync"
 	"time"
@@ -71,6 +72,7 @@ type AuthService struct {
 	repo         domain.PostulanteRepository
 	validator    domain.DocumentValidationStrategy
 	sessionStore domain.SessionStore
+	attemptStore domain.AuthAttemptStore
 	identity     domain.IdentityProvider // Registro Civil (SDD 7.4.1)
 
 	// Fallback para usuarios semilla en pruebas si repo no está inicializado
@@ -102,6 +104,7 @@ func NewAuthService(repo domain.PostulanteRepository, validator domain.DocumentV
 		repo:         repo,
 		validator:    validator,
 		sessionStore: store,
+		attemptStore: noopAuthAttemptStore{},
 		seedUsers:    make(map[string]seedUser),
 	}
 
@@ -113,8 +116,59 @@ func NewAuthService(repo domain.PostulanteRepository, validator domain.DocumentV
 		email:        "postulante.test@biess.gob.ec",
 		passwordHash: defaultHash,
 	}
-
 	return svc
+}
+
+func (s *AuthService) WithAuthAttemptStore(store domain.AuthAttemptStore) *AuthService {
+	if store != nil {
+		s.attemptStore = store
+	}
+	return s
+}
+
+type noopAuthAttemptStore struct{}
+
+func (noopAuthAttemptStore) CheckBlocked(context.Context, domain.AuthFlow, string) (time.Duration, error) {
+	return 0, nil
+}
+
+func (noopAuthAttemptStore) RecordFailure(context.Context, domain.AuthFlow, string) (bool, time.Duration, error) {
+	return false, 0, nil
+}
+
+func (noopAuthAttemptStore) Reset(context.Context, domain.AuthFlow, string) error {
+	return nil
+}
+
+func (s *AuthService) checkAuthBlocked(ctx context.Context, flow domain.AuthFlow, cedula string) error {
+	retryAfter, err := s.attemptStore.CheckBlocked(ctx, flow, cedula)
+	if err != nil {
+		log.Printf("[ALERTA SEGURIDAD] Redis inalcanzable para verificar bloqueo de autenticación (%s, cédula %s): %v", flow, cedula, err)
+		return fmt.Errorf("%w: %v", domain.ErrAuthProtectionDown, err)
+	}
+	if retryAfter > 0 {
+		return &domain.AuthBlockedError{Flow: flow, RetryAfter: retryAfter}
+	}
+	return nil
+}
+
+func (s *AuthService) recordAuthFailure(ctx context.Context, flow domain.AuthFlow, cedula string) error {
+	blocked, retryAfter, err := s.attemptStore.RecordFailure(ctx, flow, cedula)
+	if err != nil {
+		log.Printf("[ALERTA SEGURIDAD] Redis inalcanzable para registrar intento de autenticación (%s, cédula %s): %v", flow, cedula, err)
+		return fmt.Errorf("%w: %v", domain.ErrAuthProtectionDown, err)
+	}
+	if blocked {
+		return &domain.AuthBlockedError{Flow: flow, RetryAfter: retryAfter}
+	}
+	return nil
+}
+
+func (s *AuthService) resetAuthFailures(ctx context.Context, flow domain.AuthFlow, cedula string) error {
+	if err := s.attemptStore.Reset(ctx, flow, cedula); err != nil {
+		return fmt.Errorf("%w: %v", domain.ErrAuthProtectionDown, err)
+	}
+	return nil
 }
 
 type TokenClaims struct {
@@ -138,12 +192,18 @@ func (s *AuthService) Login(ctx context.Context, cedula, password string) (*Logi
 	if err := s.ValidarIdentidad(cedula); err != nil {
 		return nil, domain.ErrInvalidCredentials // Mensaje estándar SDD 9.2.3 para evitar enumeración
 	}
+	if err := s.checkAuthBlocked(ctx, domain.AuthFlowLogin, cedula); err != nil {
+		return nil, err
+	}
 
 	var postulanteID, email, passHash string
 
 	if s.repo != nil {
 		p, err := s.repo.GetByCedula(ctx, cedula)
 		if err != nil || p == nil {
+			if recordErr := s.recordAuthFailure(ctx, domain.AuthFlowLogin, cedula); recordErr != nil {
+				return nil, recordErr
+			}
 			return nil, domain.ErrInvalidCredentials
 		}
 		postulanteID = p.ID
@@ -155,6 +215,9 @@ func (s *AuthService) Login(ctx context.Context, cedula, password string) (*Logi
 		u, ok := s.seedUsers[cedula]
 		s.seedUsersMu.RUnlock()
 		if !ok {
+			if recordErr := s.recordAuthFailure(ctx, domain.AuthFlowLogin, cedula); recordErr != nil {
+				return nil, recordErr
+			}
 			return nil, domain.ErrInvalidCredentials
 		}
 		postulanteID = u.postulanteID
@@ -165,7 +228,13 @@ func (s *AuthService) Login(ctx context.Context, cedula, password string) (*Logi
 	// 2. Verificar contraseña en tiempo constante con Argon2id
 	match, err := s.VerifyPassword(password, passHash)
 	if err != nil || !match {
+		if recordErr := s.recordAuthFailure(ctx, domain.AuthFlowLogin, cedula); recordErr != nil {
+			return nil, recordErr
+		}
 		return nil, domain.ErrInvalidCredentials
+	}
+	if err := s.resetAuthFailures(ctx, domain.AuthFlowLogin, cedula); err != nil {
+		return nil, err
 	}
 
 	// 3. Generar Access Token (15 min)

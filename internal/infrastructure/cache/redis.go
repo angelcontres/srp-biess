@@ -25,10 +25,10 @@ func NewRedisClient(ctx context.Context) *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:         fmt.Sprintf("%s:%s", host, port),
 		Password:     password,
-		DB:           0,
+		DB:           1,
 		DialTimeout:  2 * time.Second,
-		ReadTimeout:  2 * time.Second,
-		WriteTimeout: 2 * time.Second,
+		ReadTimeout:  500 * time.Millisecond,
+		WriteTimeout: 500 * time.Millisecond,
 	})
 
 	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)

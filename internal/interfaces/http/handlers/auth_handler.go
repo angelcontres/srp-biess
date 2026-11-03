@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,6 +43,14 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 
 	result, err := h.authService.Login(c.Context(), req.Cedula, req.Password)
 	if err != nil {
+		var blockedErr *domain.AuthBlockedError
+		if errors.As(err, &blockedErr) {
+			c.Set(fiber.HeaderRetryAfter, strconv.Itoa(retryAfterSeconds(blockedErr.RetryAfter)))
+			return c.Status(fiber.StatusLocked).JSON(dto.Failure("inicio de sesión bloqueado, inténtelo nuevamente en 10 minutos"))
+		}
+		if errors.Is(err, domain.ErrAuthProtectionDown) {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(dto.Failure("El servicio de autenticación no está disponible temporalmente"))
+		}
 		if errors.Is(err, domain.ErrInvalidCredentials) {
 			return c.Status(fiber.StatusUnauthorized).JSON(dto.Failure("Sus credenciales de ingreso son incorrectas"))
 		}
@@ -172,7 +181,13 @@ func (h *AuthHandler) ValidarIdentidadRegistro(c *fiber.Ctx) error {
 
 	res, err := h.authService.ValidarIdentidadRegistro(c.Context(), req.Cedula, domain.TipoValidacion(req.TipoValidacion), req.Valor)
 	if err != nil {
+		var blockedErr *domain.AuthBlockedError
 		switch {
+		case errors.As(err, &blockedErr):
+			c.Set(fiber.HeaderRetryAfter, strconv.Itoa(retryAfterSeconds(blockedErr.RetryAfter)))
+			return c.Status(fiber.StatusLocked).JSON(dto.Failure("registro fallido, inténtelo nuevamente en 10 minutos"))
+		case errors.Is(err, domain.ErrAuthProtectionDown):
+			return c.Status(fiber.StatusServiceUnavailable).JSON(dto.Failure("El servicio de autenticación no está disponible temporalmente"))
 		case errors.Is(err, domain.ErrInvalidTipoValidacion):
 			return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("Tipo de validación no soportado"))
 		case errors.Is(err, domain.ErrInvalidCedula):
@@ -198,4 +213,12 @@ func (h *AuthHandler) ValidarIdentidadRegistro(c *fiber.Ctx) error {
 			"nacionalidad":    d.Nacionalidad,
 		},
 	}, "Identidad validada con el Registro Civil"))
+}
+
+func retryAfterSeconds(duration time.Duration) int {
+	seconds := int(duration / time.Second)
+	if seconds < 1 {
+		return 1
+	}
+	return seconds
 }
