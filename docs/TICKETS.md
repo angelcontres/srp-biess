@@ -245,6 +245,7 @@
 * **Tipo:** Feature / Pagos
 * **Asignado:** Jose Daniel Gonzalez Cochea
 * **Rama:** `feature/mocks-payments-invoicing`
+* **Nota de alcance:** el proceso de postulación es gratuito (ver SRP-016), así que ninguna pantalla consume este módulo. Se debe revisar con el equipo si se retira junto con RF-PAG-01, RF-PAG-02 y RN-42 del SRS, el ADR-014 y las secciones 7.6.2, 7.6.3 y 10.15 del SDD, y los campos `cargo.arancel` y `postulacion.estado_arancel`.
 * **Descripción:** Implementar arquitectura hexagonal para pagos y facturación (ADR-014):
   * Validador de tarjetas de crédito con Algoritmo de Luhn.
   * Puerto `PaymentGateway` con adaptador `MockPaymentGateway` (soporta tarjeta aprobada y tarjeta con fondos insuficientes).
@@ -361,8 +362,15 @@
   * Redirección al login si el usuario no tiene sesión activa.
   * Renovación transparente del Access Token ante respuestas 401 llamando a `/auth/refresh`.
 * **Criterios de Aceptación:**
-  - [ ] No es posible acceder a `/formulario` sin haberse autenticado.
-  - [ ] Cierre de sesión limpio que elimina el estado global y limpia las cookies.
+  - [x] No es posible acceder a `/formulario` sin haberse autenticado.
+  - [x] Cierre de sesión limpio que elimina el estado global y limpia las cookies.
+* **Notas de implementación:**
+  * Rutas (React Router 6, `App.tsx`): `/` portada, `/ingresar`, `/registro` y `/formulario`; cualquier otra ruta vuelve a `/`. `ProtectedRoute` y `PublicOnlyRoute` en `features/auth/session/routes.tsx`: sin sesión, `/formulario` lleva a `/ingresar` y, tras ingresar, regresa a la página pedida; con sesión, las páginas públicas llevan a `/formulario` (RF-EF11-10). Mientras se restaura la sesión se muestra un skeleton.
+  * Estado global de sesión en `features/auth/session/SessionProvider.tsx`: restaura la sesión al cargar con `/auth/refresh` y `/auth/me`; el cierre de sesión llama a `/auth/logout` (el backend borra la cookie `refresh_token`), limpia el token en memoria y los borradores locales.
+  * Interceptor (`services/api/client.ts`): agrega el `Bearer`, y ante un 401 renueva el token una sola vez (una única llamada aunque fallen varias peticiones a la vez) y reintenta. Si la renovación falla con una sesión abierta, `expireSession()` lleva a `/ingresar` con el aviso "Su sesión expiró…" y borra los borradores.
+  * Al navegar, el foco pasa al `h1` de la página nueva.
+  * Pruebas: `frontend/src/App.test.tsx` y `frontend/src/services/api/client.test.ts`.
+  * **Despliegue:** el servidor que sirva la SPA debe devolver `index.html` para cualquier ruta (fallback de SPA); si no, recargar en `/formulario` da 404. En desarrollo, Vite ya lo hace.
 
 ---
 

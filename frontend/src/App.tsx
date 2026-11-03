@@ -1,12 +1,13 @@
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
+import Skeleton from '@/components/ui/Skeleton';
 import LandingPage from '@/features/auth/pages/LandingPage';
 import LoginPage from '@/features/auth/pages/LoginPage';
 import RegisterPage from '@/features/auth/pages/RegisterPage';
-import { clearAllDrafts } from '@/features/postulacion/hooks/useDraftCache';
-import Skeleton from '@/components/ui/Skeleton';
-import { clearSession } from '@/store/authStore';
-import { api, refreshAccessToken } from './services/api/client';
+import { useSession } from '@/features/auth/session/SessionProvider';
+import { ProtectedRoute, PublicOnlyRoute, RUTAS } from '@/features/auth/session/routes';
+import type { EstadoRedireccion } from '@/features/auth/session/routes';
 
 // SDD 6.13: the form is code-split; it loads only after authentication.
 const PostulacionPage = lazy(() => import('@/features/postulacion/pages/PostulacionPage'));
@@ -18,45 +19,36 @@ const footerLinks = [
   { label: 'Bases legales del concurso', href: '#bases-legales' },
 ];
 
-type AuthView = 'landing' | 'login' | 'register';
+const AVISO_SESION_EXPIRADA = 'Su sesión expiró. Ingrese nuevamente para continuar con su postulación.';
+
+/** Moves focus to the new page's heading after client-side navigation (not on the first load). */
+function useFocoAlNavegar() {
+  const { pathname } = useLocation();
+  const primeraCarga = useRef(true);
+  useEffect(() => {
+    if (primeraCarga.current) {
+      primeraCarga.current = false;
+      return;
+    }
+    const titulo = document.querySelector<HTMLElement>('#main-content h1');
+    if (!titulo) return;
+    if (!titulo.hasAttribute('tabindex')) titulo.setAttribute('tabindex', '-1');
+    titulo.focus({ preventScroll: false });
+  }, [pathname]);
+}
 
 function App() {
-  const [currentView, setCurrentView] = useState<AuthView>('landing');
-  const [authenticatedUser, setAuthenticatedUser] = useState<string | undefined>(undefined);
-  const [isRestoring, setIsRestoring] = useState(true);
-
-
-  useEffect(() => {
-    (async () => {
-      const token = await refreshAccessToken();
-      if (token) {
-        try {
-          const { data } = await api.get<{ data: { email: string } }>('/auth/me');
-          setAuthenticatedUser(data.data.email);
-        } catch {
-          // la sesión no es válida
-        }
-      }
-      setIsRestoring(false);
-    })();
-  }, []);
-
-  if (isRestoring) return null; // o un spinner, para no mostrar el login un instante
-
-
+  const { user, expired, signIn, signOut } = useSession();
+  const navigate = useNavigate();
+  const location = useLocation();
+  useFocoAlNavegar();
 
   const handleLogout = async () => {
-    try {
-      await api.post('/auth/logout');
-    } catch {
-      // aunque falle, la sesión local se limpia igual
-    } finally {
-      clearSession();
-      clearAllDrafts(); // the local form draft never outlives the session (DESIGN states.md)
-    }
-    setAuthenticatedUser(undefined);
-    setCurrentView('landing');
+    await signOut();
+    navigate(RUTAS.inicio, { replace: true });
   };
+
+  const destinoTrasIngreso = (location.state as EstadoRedireccion | null)?.desde ?? RUTAS.formulario;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -67,37 +59,56 @@ function App() {
         Saltar al contenido
       </a>
 
-      <Navbar userName={authenticatedUser} onLogout={handleLogout} />
+      <Navbar userName={user} onLogout={() => void handleLogout()} />
 
       <main id="main-content" className="flex-1">
-        {authenticatedUser ? (
-          // RF-EF11-10: an authenticated applicant goes straight to the form (SRP-013).
-          <Suspense
-            fallback={
-              <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-                <Skeleton label="Cargando su postulación" />
-              </div>
-            }
-          >
-            <PostulacionPage />
-          </Suspense>
-        ) : currentView === 'landing' ? (
-          <LandingPage
-            onNavigateToLogin={() => setCurrentView('login')}
-            onNavigateToRegister={() => setCurrentView('register')}
-          />
-        ) : currentView === 'login' ? (
-          <LoginPage
-            onNavigateToRegister={() => setCurrentView('register')}
-            onLoginSuccess={(user) => {
-              if (typeof user?.email === 'string') {
-                setAuthenticatedUser(user.email);
+        <Routes>
+          <Route element={<PublicOnlyRoute />}>
+            <Route
+              path={RUTAS.inicio}
+              element={
+                <LandingPage
+                  onNavigateToLogin={() => navigate(RUTAS.ingresar)}
+                  onNavigateToRegister={() => navigate(RUTAS.registro)}
+                />
               }
-            }}
-          />
-        ) : (
-          <RegisterPage onNavigateToLogin={() => setCurrentView('login')} />
-        )}
+            />
+            <Route
+              path={RUTAS.ingresar}
+              element={
+                <LoginPage
+                  aviso={expired ? AVISO_SESION_EXPIRADA : undefined}
+                  onNavigateToRegister={() => navigate(RUTAS.registro)}
+                  onLoginSuccess={(datos) => {
+                    navigate(destinoTrasIngreso, { replace: true });
+                    signIn(datos.email);
+                  }}
+                />
+              }
+            />
+            <Route path={RUTAS.registro} element={<RegisterPage onNavigateToLogin={() => navigate(RUTAS.ingresar)} />} />
+          </Route>
+
+          <Route element={<ProtectedRoute />}>
+            <Route
+              path={RUTAS.formulario}
+              element={
+                // RF-EF11-10: an authenticated applicant goes straight to the form (SRP-013).
+                <Suspense
+                  fallback={
+                    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+                      <Skeleton label="Cargando su postulación" />
+                    </div>
+                  }
+                >
+                  <PostulacionPage />
+                </Suspense>
+              }
+            />
+          </Route>
+
+          <Route path="*" element={<Navigate to={RUTAS.inicio} replace />} />
+        </Routes>
       </main>
 
       <footer className="border-t border-line-strong bg-surface px-4 py-6 text-sm text-muted sm:px-6">
