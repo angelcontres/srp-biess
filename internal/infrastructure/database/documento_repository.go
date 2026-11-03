@@ -12,7 +12,7 @@ import (
 	"srp-biess/internal/domain"
 )
 
-// PostgresDocumentoRepository implementa domain.DocumentoRepository con pgx y Querier (SRP-004).
+// PostgresDocumentoRepository implementa domain.DocumentoRepository con pgx y Querier (SRP-004, SRP-005).
 type PostgresDocumentoRepository struct {
 	q Querier
 }
@@ -23,6 +23,10 @@ func NewPostgresDocumentoRepository(q Querier) *PostgresDocumentoRepository {
 
 func (r *PostgresDocumentoRepository) WithQuerier(q Querier) *PostgresDocumentoRepository {
 	return &PostgresDocumentoRepository{q: q}
+}
+
+func (r *PostgresDocumentoRepository) getQuerier(ctx context.Context) Querier {
+	return ExtractQuerier(ctx, r.q)
 }
 
 func (r *PostgresDocumentoRepository) Save(ctx context.Context, doc *domain.Documento) error {
@@ -45,7 +49,7 @@ func (r *PostgresDocumentoRepository) Save(ctx context.Context, doc *domain.Docu
 		estado = string(domain.EstadoDocPendiente)
 	}
 
-	return r.q.QueryRow(ctx, query,
+	return r.getQuerier(ctx).QueryRow(ctx, query,
 		doc.PostulanteID,
 		postulacionID,
 		string(doc.Tipo),
@@ -70,7 +74,7 @@ func (r *PostgresDocumentoRepository) GetByID(ctx context.Context, id string) (*
 	var tipo, estado string
 	var createdAt time.Time
 
-	err := r.q.QueryRow(ctx, query, id).Scan(
+	err := r.getQuerier(ctx).QueryRow(ctx, query, id).Scan(
 		&d.ID,
 		&d.PostulanteID,
 		&d.PostulacionID,
@@ -106,7 +110,7 @@ func (r *PostgresDocumentoRepository) ListByPostulacionID(ctx context.Context, p
 		WHERE postulacion_id = $1::uuid
 		ORDER BY created_at ASC`
 
-	rows, err := r.q.Query(ctx, query, postulacionID)
+	rows, err := r.getQuerier(ctx).Query(ctx, query, postulacionID)
 	if err != nil {
 		return nil, fmt.Errorf("error listando documentos de postulación: %w", err)
 	}
@@ -147,7 +151,7 @@ func (r *PostgresDocumentoRepository) ListByPostulacionID(ctx context.Context, p
 
 func (r *PostgresDocumentoRepository) Delete(ctx context.Context, id string) error {
 	query := `DELETE FROM documento WHERE id = $1::uuid`
-	cmdTag, err := r.q.Exec(ctx, query, id)
+	cmdTag, err := r.getQuerier(ctx).Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("error eliminando documento: %w", err)
 	}

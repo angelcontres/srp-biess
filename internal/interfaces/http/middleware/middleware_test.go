@@ -40,8 +40,8 @@ func TestMiddlewares(t *testing.T) {
 		if resp.Header.Get("X-Request-ID") == "" {
 			t.Errorf("se esperaba cabecera X-Request-ID generada")
 		}
-		if resp.Header.Get("Access-Control-Allow-Origin") != "*" {
-			t.Errorf("se esperaba Access-Control-Allow-Origin: *")
+		if resp.Header.Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
+			t.Errorf("se esperaba Access-Control-Allow-Origin: http://localhost:5173")
 		}
 	})
 
