@@ -1,0 +1,549 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": "1.0",
+  "descripcion": "Reglas de validación para las secciones editables de la postulación (SRP-017d / RF-EF12-24)",
+  "patrones": {
+    "telefono": "^(\\+\\d{8,15}|0\\d{8,9})$",
+    "cedula": "^\\d{10}$",
+    "horas": "^[1-9]\\d*$"
+  },
+  "secciones": {
+    "personal": {
+      "id": "personal",
+      "titulo": "Información personal",
+      "campos": {
+        "estadoCivil": {
+          "tipo": "enum",
+          "requerido": true,
+          "valores": ["SOLTERO", "CASADO", "UNION_DE_HECHO", "DIVORCIADO", "VIUDO", "OTRO"],
+          "mensaje": "Seleccione su estado civil."
+        },
+        "parejaNombres": {
+          "tipo": "string",
+          "max": 255,
+          "requeridoSi": {
+            "campo": "estadoCivil",
+            "en": ["CASADO", "UNION_DE_HECHO"]
+          },
+          "mensajeRequerido": "Ingrese los nombres y apellidos de su pareja.",
+          "mensajeMax": "Use como máximo 255 caracteres."
+        },
+        "parejaCedula": {
+          "tipo": "string",
+          "max": 10,
+          "patron": "cedula",
+          "requeridoSi": {
+            "campo": "estadoCivil",
+            "en": ["CASADO", "UNION_DE_HECHO"]
+          },
+          "noIgualACedulaPostulante": true,
+          "mensajeRequerido": "Ingrese la cédula de su pareja.",
+          "mensajePatron": "La cédula debe tener 10 números. Revise que no tenga letras ni espacios.",
+          "mensajeNoIgual": "La cédula de su pareja debe ser distinta de la suya."
+        }
+      }
+    },
+    "domicilio": {
+      "id": "domicilio",
+      "titulo": "Información domiciliaria y de contacto",
+      "campos": {
+        "paisId": {
+          "tipo": "string",
+          "requerido": true,
+          "mensaje": "Seleccione el país de residencia."
+        },
+        "provinciaId": {
+          "tipo": "string",
+          "requeridoSi": {
+            "campo": "paisId",
+            "es": "EC"
+          },
+          "mensajeRequerido": "Seleccione la provincia."
+        },
+        "cantonId": {
+          "tipo": "string",
+          "requeridoSi": {
+            "campo": "paisId",
+            "es": "EC"
+          },
+          "mensajeRequerido": "Seleccione el cantón."
+        },
+        "provinciaManual": {
+          "tipo": "string",
+          "max": 120,
+          "requeridoSi": {
+            "campo": "paisId",
+            "noEs": "EC"
+          },
+          "mensajeRequerido": "Ingrese la provincia o estado.",
+          "mensajeMax": "Use como máximo 120 caracteres."
+        },
+        "ciudadManual": {
+          "tipo": "string",
+          "max": 120,
+          "requeridoSi": {
+            "campo": "paisId",
+            "noEs": "EC"
+          },
+          "mensajeRequerido": "Ingrese la ciudad.",
+          "mensajeMax": "Use como máximo 120 caracteres."
+        },
+        "telefonoCelular": {
+          "tipo": "string",
+          "requerido": true,
+          "max": 16,
+          "patron": "telefono",
+          "mensajeRequerido": "Ingrese su teléfono celular.",
+          "mensajePatron": "Ingrese el teléfono con 9 o 10 números, por ejemplo 0991234567, o con código de país, por ejemplo +593991234567."
+        },
+        "correoAlterno": {
+          "tipo": "email",
+          "requerido": false,
+          "noIgualACorreoPrincipal": true,
+          "mensajePatron": "Ingrese un correo válido, por ejemplo nombre@dominio.com.",
+          "mensajeNoIgual": "El correo secundario debe ser distinto del correo principal."
+        },
+        "callePrincipal": {
+          "tipo": "string",
+          "requerido": true,
+          "max": 150,
+          "mensajeRequerido": "Ingrese la calle principal.",
+          "mensajeMax": "Use como máximo 150 caracteres."
+        },
+        "numero": {
+          "tipo": "string",
+          "requerido": true,
+          "max": 20,
+          "mensajeRequerido": "Ingrese el número de casa o edificio.",
+          "mensajeMax": "Use como máximo 20 caracteres."
+        },
+        "calleSecundaria": {
+          "tipo": "string",
+          "requerido": false,
+          "max": 150,
+          "mensajeMax": "Use como máximo 150 caracteres."
+        },
+        "sector": {
+          "tipo": "string",
+          "requerido": false,
+          "max": 120,
+          "mensajeMax": "Use como máximo 120 caracteres."
+        },
+        "referencia": {
+          "tipo": "string",
+          "requerido": false,
+          "max": 255,
+          "mensajeMax": "Use como máximo 255 caracteres."
+        },
+        "telefonoDomicilio": {
+          "tipo": "string",
+          "requerido": false,
+          "patron": "telefono",
+          "mensajePatron": "Ingrese el teléfono con 9 o 10 números, por ejemplo 0991234567, o con código de país, por ejemplo +593991234567."
+        }
+      }
+    },
+    "familiares": {
+      "id": "familiares",
+      "titulo": "Familiares en el IESS o el BIESS",
+      "campos": {
+        "tieneFamiliares": {
+          "tipo": "enum",
+          "requerido": true,
+          "valores": ["SI", "NO"],
+          "mensaje": "Indique si tiene familiares que trabajen en el IESS o el BIESS."
+        },
+        "familiares": {
+          "tipo": "array",
+          "minItemsSi": {
+            "campo": "tieneFamiliares",
+            "es": "SI",
+            "min": 1
+          },
+          "mensajeMinItems": "Agregue al menos un familiar o responda “No”.",
+          "itemCampos": {
+            "nombresApellidos": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 200,
+              "mensajeRequerido": "Ingrese los nombres y apellidos del familiar."
+            },
+            "parentesco": {
+              "tipo": "enum",
+              "requerido": true,
+              "valores": [
+                "CONVIVIENTE",
+                "CONYUGE",
+                "CUNADO",
+                "HERMANO",
+                "HIJO_POLITICO",
+                "HIJO",
+                "MADRE",
+                "NIETO",
+                "NUERA",
+                "PADRE",
+                "PRIMO_HERMANO",
+                "SOBRINO",
+                "SUEGRO",
+                "TIO",
+                "YERNO"
+              ],
+              "mensaje": "Seleccione el parentesco."
+            },
+            "institucion": {
+              "tipo": "enum",
+              "requerido": true,
+              "valores": ["IESS", "BIESS"],
+              "mensaje": "Seleccione la institución."
+            },
+            "area": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 150,
+              "mensajeRequerido": "Ingrese el área en la que trabaja."
+            },
+            "cargo": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 150,
+              "mensajeRequerido": "Ingrese el cargo que ocupa."
+            }
+          }
+        }
+      }
+    },
+    "cargo": {
+      "id": "cargo",
+      "titulo": "Selección del cargo y respaldo organizacional",
+      "campos": {
+        "tieneRespaldo": {
+          "tipo": "enum",
+          "requerido": true,
+          "valores": ["SI", "NO"],
+          "mensaje": "Indique si cuenta con respaldo organizacional."
+        },
+        "nombreOrganizacion": {
+          "tipo": "string",
+          "max": 200,
+          "requeridoSi": {
+            "campo": "tieneRespaldo",
+            "es": "SI"
+          },
+          "mensajeRequerido": "Ingrese el nombre de la organización.",
+          "mensajeMax": "Use como máximo 200 caracteres."
+        },
+        "documento": {
+          "tipo": "documento",
+          "requeridoSi": {
+            "campo": "tieneRespaldo",
+            "es": "SI"
+          },
+          "mensajeRequerido": "Adjunte el documento de respaldo en PDF."
+        }
+      }
+    },
+    "formacion": {
+      "id": "formacion",
+      "titulo": "Formación académica",
+      "campos": {
+        "formaciones": {
+          "tipo": "array",
+          "minItems": 1,
+          "mensajeMinItems": "Agregue al menos una formación académica.",
+          "itemCampos": {
+            "nivel": {
+              "tipo": "enum",
+              "requerido": true,
+              "valores": ["TERCER_NIVEL", "ESPECIALIDAD", "MAESTRIA", "PHD"],
+              "mensaje": "Seleccione el nivel de instrucción."
+            },
+            "institucion": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 200,
+              "mensajeRequerido": "Ingrese la institución educativa."
+            },
+            "tipoInstitucion": {
+              "tipo": "enum",
+              "requerido": true,
+              "valores": ["NACIONAL", "EXTRANJERA"],
+              "mensaje": "Seleccione si la institución es nacional o extranjera."
+            },
+            "titulo": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 200,
+              "mensajeRequerido": "Ingrese el título obtenido."
+            },
+            "area": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 150,
+              "mensajeRequerido": "Ingrese el área de estudios."
+            },
+            "numeroSenescyt": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 50,
+              "mensajeRequerido": "Ingrese el número de registro de la SENESCYT."
+            },
+            "fechaSenescyt": {
+              "tipo": "fecha",
+              "requerido": true,
+              "permitirFutura": false,
+              "mensajeRequerido": "Ingrese la fecha de registro de la SENESCYT.",
+              "mensajePatron": "Ingrese la fecha con el formato dd/mm/aaaa, por ejemplo 15/01/2020.",
+              "mensajeNoFutura": "La fecha no puede ser posterior a hoy."
+            },
+            "documento": {
+              "tipo": "documento",
+              "requerido": true,
+              "mensajeRequerido": "Adjunte el título en PDF."
+            }
+          }
+        }
+      }
+    },
+    "experiencia": {
+      "id": "experiencia",
+      "titulo": "Experiencia profesional",
+      "campos": {
+        "experiencias": {
+          "tipo": "array",
+          "itemCampos": {
+            "tipo": {
+              "tipo": "enum",
+              "requerido": true,
+              "valores": ["GENERAL", "DIRECCION"],
+              "mensaje": "Seleccione el tipo de experiencia."
+            },
+            "cargo": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 150,
+              "mensajeRequerido": "Ingrese el cargo o puesto."
+            },
+            "institucion": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 200,
+              "mensajeRequerido": "Ingrese la institución o empresa."
+            },
+            "fechaInicio": {
+              "tipo": "fecha",
+              "requerido": true,
+              "permitirFutura": false,
+              "mensajeRequerido": "Ingrese la fecha de inicio.",
+              "mensajePatron": "Ingrese la fecha con el formato dd/mm/aaaa, por ejemplo 15/01/2020.",
+              "mensajeNoFutura": "La fecha no puede ser posterior a hoy."
+            },
+            "actualmente": {
+              "tipo": "boolean"
+            },
+            "fechaFin": {
+              "tipo": "fecha",
+              "permitirFutura": false,
+              "requeridoSi": {
+                "campo": "actualmente",
+                "es": false
+              },
+              "mayorOIgualQue": "fechaInicio",
+              "mensajeRequerido": "Ingrese la fecha de fin o marque “Trabajo aquí actualmente”.",
+              "mensajePatron": "Ingrese la fecha con el formato dd/mm/aaaa, por ejemplo 15/01/2020.",
+              "mensajeNoFutura": "La fecha no puede ser posterior a hoy.",
+              "mensajeRango": "La fecha de fin debe ser posterior a la fecha de inicio."
+            },
+            "actividades": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 500,
+              "mensajeRequerido": "Ingrese las actividades relacionadas con el cargo."
+            },
+            "funciones": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 1000,
+              "mensajeRequerido": "Ingrese la descripción de funciones."
+            },
+            "documento": {
+              "tipo": "documento",
+              "requerido": true,
+              "mensajeRequerido": "Adjunte el certificado de experiencia en PDF."
+            }
+          }
+        }
+      }
+    },
+    "publicaciones": {
+      "id": "publicaciones",
+      "titulo": "Publicaciones e investigaciones",
+      "campos": {
+        "tienePublicaciones": {
+          "tipo": "enum",
+          "requerido": true,
+          "valores": ["SI", "NO"],
+          "mensaje": "Indique si cuenta con publicaciones o investigaciones académicas."
+        },
+        "publicaciones": {
+          "tipo": "array",
+          "minItemsSi": {
+            "campo": "tienePublicaciones",
+            "es": "SI",
+            "min": 1
+          },
+          "mensajeMinItems": "Agregue al menos una publicación o responda “No”.",
+          "itemCampos": {
+            "titulo": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 300,
+              "mensajeRequerido": "Ingrese el título de la publicación."
+            },
+            "tipo": {
+              "tipo": "enum",
+              "requerido": true,
+              "valores": ["PUBLICACION", "TRABAJO_INVESTIGACION"],
+              "mensaje": "Seleccione el tipo de publicación."
+            },
+            "medio": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 200,
+              "mensajeRequerido": "Ingrese el medio de publicación."
+            },
+            "fecha": {
+              "tipo": "fecha",
+              "requerido": true,
+              "permitirFutura": false,
+              "mensajeRequerido": "Ingrese la fecha de publicación.",
+              "mensajePatron": "Ingrese la fecha con el formato dd/mm/aaaa, por ejemplo 15/01/2020.",
+              "mensajeNoFutura": "La fecha no puede ser posterior a hoy."
+            },
+            "relacion": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 500,
+              "mensajeRequerido": "Indique la relación con su formación o ejercicio profesional."
+            },
+            "documento": {
+              "tipo": "documento",
+              "requerido": true,
+              "mensajeRequerido": "Adjunte la publicación en PDF."
+            }
+          }
+        }
+      }
+    },
+    "capacitacion": {
+      "id": "capacitacion",
+      "titulo": "Capacitación",
+      "campos": {
+        "capacitaciones": {
+          "tipo": "array",
+          "itemCampos": {
+            "tipoEvento": {
+              "tipo": "enum",
+              "requerido": true,
+              "valores": ["CURSO", "SEMINARIO", "TALLER"],
+              "mensaje": "Seleccione el tipo de evento."
+            },
+            "nombre": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 200,
+              "mensajeRequerido": "Ingrese el nombre del evento."
+            },
+            "institucion": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 200,
+              "mensajeRequerido": "Ingrese la institución que organizó el evento."
+            },
+            "fechaInicio": {
+              "tipo": "fecha",
+              "requerido": true,
+              "permitirFutura": false,
+              "mensajeRequerido": "Ingrese la fecha de inicio.",
+              "mensajePatron": "Ingrese la fecha con el formato dd/mm/aaaa, por ejemplo 15/01/2020.",
+              "mensajeNoFutura": "La fecha no puede ser posterior a hoy."
+            },
+            "fechaFin": {
+              "tipo": "fecha",
+              "requerido": true,
+              "permitirFutura": false,
+              "mayorOIgualQue": "fechaInicio",
+              "mensajeRequerido": "Ingrese la fecha de fin.",
+              "mensajePatron": "Ingrese la fecha con el formato dd/mm/aaaa, por ejemplo 15/01/2020.",
+              "mensajeNoFutura": "La fecha no puede ser posterior a hoy.",
+              "mensajeRango": "La fecha de fin debe ser posterior a la fecha de inicio."
+            },
+            "horas": {
+              "tipo": "string",
+              "requerido": true,
+              "max": 5,
+              "patron": "horas",
+              "mensajeRequerido": "Ingrese el número de horas.",
+              "mensajePatron": "Ingrese un número de horas mayor que cero, sin decimales."
+            },
+            "documento": {
+              "tipo": "documento",
+              "requerido": true,
+              "mensajeRequerido": "Adjunte el certificado en PDF."
+            }
+          }
+        }
+      }
+    },
+    "inhabilidades": {
+      "id": "inhabilidades",
+      "titulo": "Inhabilidades",
+      "campos": {
+        "respuestas": {
+          "tipo": "array",
+          "longitudExacta": 13,
+          "itemTipo": "enum",
+          "valores": ["SI", "NO"],
+          "mensaje": "Responda esta pregunta."
+        },
+        "remocionInstitucion": {
+          "tipo": "string",
+          "max": 200,
+          "requeridoSi": {
+            "campo": "respuestas[6]",
+            "es": "SI"
+          },
+          "mensajeRequerido": "Ingrese la institución."
+        },
+        "remocionCargo": {
+          "tipo": "string",
+          "max": 150,
+          "requeridoSi": {
+            "campo": "respuestas[6]",
+            "es": "SI"
+          },
+          "mensajeRequerido": "Ingrese el cargo."
+        },
+        "remocionFechaFin": {
+          "tipo": "fecha",
+          "permitirFutura": false,
+          "requeridoSi": {
+            "campo": "respuestas[6]",
+            "es": "SI"
+          },
+          "mensajeRequerido": "Ingrese la fecha de finalización.",
+          "mensajePatron": "Ingrese la fecha con el formato dd/mm/aaaa, por ejemplo 15/01/2020.",
+          "mensajeNoFutura": "La fecha no puede ser posterior a hoy."
+        },
+        "remocionMotivo": {
+          "tipo": "string",
+          "max": 500,
+          "requeridoSi": {
+            "campo": "respuestas[6]",
+            "es": "SI"
+          },
+          "mensajeRequerido": "Ingrese el motivo de la remoción."
+        }
+      }
+    }
+  }
+}
