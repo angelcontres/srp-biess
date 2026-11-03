@@ -58,9 +58,7 @@ func (s *FormularioService) ObtenerDetalle(ctx context.Context, id, postulanteID
 }
 
 // GuardarSeccion persiste una sección con control de versión optimista (RF-EF12-02).
-//
-// TODO(backend: SRP-005): la completitud la informa el cliente; RF-EF12-24 exige que el
-// servidor valide las reglas de cada sección antes de marcarla como COMPLETA.
+// Valida las reglas de completitud en el servidor si completa == true (RF-EF12-24, SRP-017d).
 func (s *FormularioService) GuardarSeccion(
 	ctx context.Context, id, postulanteID, seccion string, datos []byte, completa bool, version int,
 ) (*domain.EstadoFormulario, error) {
@@ -74,5 +72,26 @@ func (s *FormularioService) GuardarSeccion(
 	if err := json.Unmarshal(datos, &objeto); err != nil {
 		return nil, domain.ErrSeccionInvalida
 	}
+
+	if completa {
+		var ctxPostulante domain.ContextoPostulante
+		detalle, err := s.repo.ObtenerDetalle(ctx, id, postulanteID)
+		if err != nil {
+			return nil, err
+		}
+		if detalle != nil && detalle.Postulacion != nil && detalle.Postulacion.Estado != "" && detalle.Postulacion.Estado != "BORRADOR" {
+			return nil, domain.ErrPostulacionCerrada
+		}
+		if detalle != nil && detalle.Verificados != nil {
+			ctxPostulante.CedulaPostulante = detalle.Verificados.Cedula
+			ctxPostulante.CorreoPrincipal = detalle.Verificados.Correo
+		}
+		ctxPostulante.PaisEcuadorID = "EC"
+
+		if err := domain.ValidarSeccion(seccion, datos, ctxPostulante); err != nil {
+			return nil, err
+		}
+	}
+
 	return s.repo.GuardarSeccion(ctx, id, postulanteID, seccion, datos, completa, version)
 }

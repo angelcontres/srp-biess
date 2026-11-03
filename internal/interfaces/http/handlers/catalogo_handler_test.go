@@ -44,6 +44,9 @@ func TestCatalogoHandler_Cascada(t *testing.T) {
 		t.Skipf("PostgreSQL no disponible: %v", err)
 	}
 	defer pool.Close()
+	if err := pool.Ping(ctx); err != nil {
+		t.Skipf("PostgreSQL ping falló: %v", err)
+	}
 
 	app := fiber.New()
 	interfacesHTTP.SetupRoutes(app, interfacesHTTP.RouterConfig{

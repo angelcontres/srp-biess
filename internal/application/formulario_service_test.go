@@ -13,6 +13,8 @@ import (
 type formularioRepoFake struct {
 	actual       *domain.EstadoFormulario
 	errActual    error
+	detalle      *domain.DetalleFormulario
+	errDetalle   error
 	creados      int
 	guardados    int
 	ultimoGuardo string
@@ -28,7 +30,16 @@ func (r *formularioRepoFake) CrearBorrador(context.Context, string) (*domain.Est
 }
 
 func (r *formularioRepoFake) ObtenerDetalle(context.Context, string, string) (*domain.DetalleFormulario, error) {
-	return &domain.DetalleFormulario{}, nil
+	if r.errDetalle != nil {
+		return nil, r.errDetalle
+	}
+	if r.detalle != nil {
+		return r.detalle, nil
+	}
+	return &domain.DetalleFormulario{
+		Postulacion: &domain.EstadoFormulario{Estado: "BORRADOR"},
+		Verificados: &domain.DatosVerificados{Cedula: "0926687856", Correo: "postulante@biess.gob.ec"},
+	}, nil
 }
 
 func (r *formularioRepoFake) GuardarSeccion(_ context.Context, _, _, seccion string, _ []byte, _ bool, version int) (*domain.EstadoFormulario, error) {
@@ -109,11 +120,53 @@ func TestFormularioService_GuardarSeccion(t *testing.T) {
 		}
 	}
 
-	repo := &formularioRepoFake{}
-	estado, err := application.NewFormularioService(repo).GuardarSeccion(ctx, "id", "p", "experiencia", []byte(`{"experiencias":[]}`), false, 4)
-	if err != nil || estado.Version != 5 || repo.ultimoGuardo != "experiencia" {
-		t.Fatalf("guardado válido: estado=%+v err=%v sección=%q", estado, err, repo.ultimoGuardo)
-	}
+	t.Run("guardado en borrador permite datos incompletos", func(t *testing.T) {
+		repo := &formularioRepoFake{}
+		estado, err := application.NewFormularioService(repo).GuardarSeccion(ctx, "id", "p", "experiencia", []byte(`{"experiencias":[]}`), false, 4)
+		if err != nil || estado.Version != 5 || repo.ultimoGuardo != "experiencia" {
+			t.Fatalf("guardado válido: estado=%+v err=%v sección=%q", estado, err, repo.ultimoGuardo)
+		}
+	})
+
+	t.Run("completa true con datos incompletos no llama al repositorio", func(t *testing.T) {
+		repo := &formularioRepoFake{}
+		_, err := application.NewFormularioService(repo).GuardarSeccion(ctx, "id", "p", "personal", []byte(`{}`), true, 1)
+		if err == nil {
+			t.Fatal("esperaba error de validación")
+		}
+		var valErr *domain.ErrorValidacionSeccion
+		if !errors.As(err, &valErr) {
+			t.Fatalf("esperado *domain.ErrorValidacionSeccion, obtenido %T: %v", err, err)
+		}
+		if repo.guardados != 0 {
+			t.Error("no debió llamar a GuardarSeccion en el repositorio")
+		}
+	})
+
+	t.Run("completa true con datos válidos llama al repositorio", func(t *testing.T) {
+		repo := &formularioRepoFake{}
+		datos := []byte(`{"estadoCivil": "SOLTERO"}`)
+		estado, err := application.NewFormularioService(repo).GuardarSeccion(ctx, "id", "p", "personal", datos, true, 1)
+		if err != nil || repo.guardados != 1 || estado.Version != 2 {
+			t.Fatalf("esperado guardado exitoso: err=%v guardados=%d", err, repo.guardados)
+		}
+	})
+
+	t.Run("postulación cerrada (no BORRADOR) responde ErrPostulacionCerrada", func(t *testing.T) {
+		repo := &formularioRepoFake{
+			detalle: &domain.DetalleFormulario{
+				Postulacion: &domain.EstadoFormulario{Estado: "ENVIADA"},
+			},
+		}
+		datos := []byte(`{"estadoCivil": "SOLTERO"}`)
+		_, err := application.NewFormularioService(repo).GuardarSeccion(ctx, "id", "p", "personal", datos, true, 1)
+		if !errors.Is(err, domain.ErrPostulacionCerrada) {
+			t.Fatalf("esperado ErrPostulacionCerrada, obtenido %v", err)
+		}
+		if repo.guardados != 0 {
+			t.Error("no debió persistirse nada si la postulación está cerrada")
+		}
+	})
 }
 
 func TestFormularioService_DelegaConsultas(t *testing.T) {

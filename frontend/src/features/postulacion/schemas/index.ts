@@ -257,3 +257,5 @@ export const resumenSchema = z.object({
 });
 export type ResumenValues = z.input<typeof resumenSchema>;
 
+
+export { default as SECCIONES_REGLAS } from './secciones_reglas.json';
