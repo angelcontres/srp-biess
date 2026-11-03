@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Controller } from 'react-hook-form';
 import type { Control, FieldPath, FieldValues, UseFormReturn } from 'react-hook-form';
 import FileUpload from '@/components/ui/FileUpload';
+import type { UploadedFileInfo } from '@/components/ui/FileUpload';
 import RadioGroup from '@/components/ui/RadioGroup';
 import SelectField from '@/components/ui/SelectField';
 import type { SelectOption } from '@/components/ui/SelectField';
@@ -205,22 +206,27 @@ export function Documento<T extends FieldValues>({
     <Controller
       control={form.control as Control<T>}
       name={name}
-      render={({ field, fieldState }) => (
-        <FileUpload
-          id={fieldId(name)}
-          label={label}
-          required={required}
-          maxSizeMB={maxSizeMB}
-          contentHint={contentHint}
-          value={field.value ?? null}
-          onChange={(value) => {
-            field.onChange(value);
-            field.onBlur();
-          }}
-          onUpload={(file, onProgress, signal) => gateway.subirDocumento(postulacion.id, tipo, file, onProgress, signal)}
-          error={fieldState.error?.message}
-        />
-      )}
+      render={({ field, fieldState }) => {
+        const actual = (field.value ?? null) as UploadedFileInfo | null;
+        return (
+          <FileUpload
+            id={fieldId(name)}
+            label={label}
+            required={required}
+            maxSizeMB={maxSizeMB}
+            contentHint={contentHint}
+            value={actual}
+            onChange={(value) => {
+              field.onChange(value);
+              field.onBlur();
+            }}
+            onUpload={(file, onProgress, signal) => gateway.subirDocumento(postulacion.id, tipo, file, onProgress, signal)}
+            onDownload={actual ? () => gateway.descargarDocumento(postulacion.id, actual.id) : undefined}
+            onRemove={actual ? () => gateway.eliminarDocumento(postulacion.id, actual.id) : undefined}
+            error={fieldState.error?.message}
+          />
+        );
+      }}
     />
   );
 }

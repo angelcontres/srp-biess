@@ -44,6 +44,7 @@ export default function PostulacionPage({ gateway = postulacionGateway }: Postul
   const [pendiente, setPendiente] = useState<SeccionId | null>(null);
   const [guardandoSalida, setGuardandoSalida] = useState(false);
   const guardRef = useRef<SeccionGuard | null>(null);
+  const [slotGuardado, setSlotGuardado] = useState<HTMLElement | null>(null);
   const seguirEditandoRef = useRef<HTMLButtonElement>(null);
 
   const cargar = useCallback(async () => {
@@ -102,8 +103,9 @@ export default function PostulacionPage({ gateway = postulacionGateway }: Postul
         guardRef.current = guard;
       },
       mostrarElegibilidad: (elegibilidad) => setVista({ tipo: 'elegibilidad', elegibilidad }),
+      slotGuardado,
     };
-  }, [carga, gateway, navegar, seccionActual, vista.tipo]);
+  }, [carga, gateway, navegar, seccionActual, vista.tipo, slotGuardado]);
 
   if (errorCarga) {
     return (
@@ -137,9 +139,11 @@ export default function PostulacionPage({ gateway = postulacionGateway }: Postul
   return (
     <PostulacionContext.Provider value={contexto}>
       <div className="mx-auto max-w-7xl lg:flex lg:gap-8 lg:px-6">
-        <aside className="border-b border-line-strong bg-surface px-4 py-4 sm:px-6 lg:w-64 lg:shrink-0 lg:border-b-0 lg:bg-transparent lg:px-0 lg:py-8">
+        {/* >= 1024 px: the column stays in view while scrolling, with its own scroll if it does not fit. */}
+        <aside className="border-b border-line-strong bg-surface px-4 py-4 sm:px-6 lg:sticky lg:top-0 lg:max-h-screen lg:w-64 lg:shrink-0 lg:self-start lg:overflow-y-auto lg:border-b-0 lg:bg-transparent lg:px-0 lg:py-8">
           <SectionStepperNav />
           <SectionStepperMobile />
+          <div ref={setSlotGuardado} className="hidden lg:mt-6 lg:block lg:border-t lg:border-line lg:pt-4" />
         </aside>
         <div className="min-w-0 flex-1">
           {vista.tipo === 'elegibilidad' ? (

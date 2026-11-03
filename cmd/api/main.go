@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -17,6 +19,8 @@ import (
 	"srp-biess/internal/infrastructure/cache"
 	"srp-biess/internal/infrastructure/database"
 	"srp-biess/internal/infrastructure/external"
+	"srp-biess/internal/infrastructure/security"
+	"srp-biess/internal/infrastructure/storage"
 	interfacesHTTP "srp-biess/internal/interfaces/http"
 	"srp-biess/internal/interfaces/http/handlers"
 	"srp-biess/internal/interfaces/http/middleware"
@@ -63,6 +67,7 @@ func main() {
 	var formularioRepo domain.FormularioRepository
 	var cargoRepo domain.CargoRepository
 	var auditoriaRepo domain.AuditoriaRepository
+	var cargaDocumentoRepo domain.CargaDocumentoRepository
 
 	if pool != nil {
 		postulanteRepo = database.NewPostgresPostulanteRepository(pool)
@@ -79,6 +84,7 @@ func main() {
 		formularioRepo = formularioPg
 		cargoRepo = formularioPg // SRP-017a: confirmación del cargo
 		auditoriaRepo = database.NewPostgresAuditoriaRepository(pool)
+		cargaDocumentoRepo = database.NewPostgresDocumentoRepository(pool) // SRP-017b
 		_ = postulacionRepo
 		_ = documentoRepo
 	}
@@ -107,6 +113,16 @@ func main() {
 	eligibilityService := application.NewEligibilityService(iessMock)
 	formularioService := application.NewFormularioService(formularioRepo) // SRP-013, integración mínima
 	cargoService := application.NewCargoService(txManager, cargoRepo, auditoriaRepo, eligibilityService, iessTimeout())
+	limitesDocumento := limitesDocumento()
+	var documentoService *application.DocumentoService
+	if cargaDocumentoRepo != nil {
+		almacen, err := storage.NewAlmacenLocal(envOr("STORAGE_PATH", "./storage"))
+		if err != nil {
+			log.Fatalf("[FATAL] %v", err)
+		}
+		documentoService = application.NewDocumentoService(txManager, cargaDocumentoRepo, almacen,
+			security.NewFirmadorHMAC(secretoDescarga()), auditoriaRepo, limitesDocumento, vigenciaDescarga())
+	}
 	// Sin PostgreSQL el handler recibe nil y responde 503 (no se invoca un repositorio nulo).
 	var catalogoService *application.CatalogoService
 	if catalogoRepo != nil {
@@ -121,6 +137,7 @@ func main() {
 	eligibilityHandler := handlers.NewEligibilityHandler(eligibilityService)
 	postulacionHandler := handlers.NewPostulacionHandler(formularioService)
 	cargoHandler := handlers.NewCargoHandler(cargoService)
+	documentoHandler := handlers.NewDocumentoHandler(documentoService)
 	catalogoHandler := handlers.NewCatalogoHandler(catalogoService)
 
 	// =========================================================================
@@ -132,6 +149,8 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
+		// Corte defensivo de uploads (SDD 13, 9.7): el mayor PDF permitido más 1 MB de margen multipart.
+		BodyLimit: int(limitesDocumento.RespaldoBytes) + 1024*1024,
 	})
 
 	app.Use(middleware.NewRequestID())
@@ -148,6 +167,7 @@ func main() {
 		EligibilityHandler: eligibilityHandler,
 		PostulacionHandler: postulacionHandler,
 		CargoHandler:       cargoHandler,
+		DocumentoHandler:   documentoHandler,
 		CatalogoHandler:    catalogoHandler,
 		AuthService:        authService,
 	})
@@ -196,4 +216,52 @@ func iessTimeout() time.Duration {
 		return d
 	}
 	return application.DefaultIESSTimeout
+}
+
+func envOr(clave, porDefecto string) string {
+	if v := os.Getenv(clave); v != "" {
+		return v
+	}
+	return porDefecto
+}
+
+// limitesDocumento lee MAX_ORGANIZATIONAL_SUPPORT_MB, MAX_DOCUMENT_MB y MAX_TOTAL_UPLOAD_MB (SDD 16.4.4).
+// El respaldo no puede pasar de 4 MB: es el CHECK ck_documento_tamano de la base.
+func limitesDocumento() domain.LimitesDocumento {
+	l := domain.LimitesPorDefecto
+	leer := func(clave string, actual int64) int64 {
+		if n, err := strconv.ParseInt(os.Getenv(clave), 10, 64); err == nil && n > 0 {
+			return n * 1024 * 1024
+		}
+		return actual
+	}
+	l.RespaldoBytes = min(leer("MAX_ORGANIZATIONAL_SUPPORT_MB", l.RespaldoBytes), domain.LimitesPorDefecto.RespaldoBytes)
+	l.OtrosBytes = min(leer("MAX_DOCUMENT_MB", l.OtrosBytes), l.RespaldoBytes)
+	l.TotalBytes = leer("MAX_TOTAL_UPLOAD_MB", l.TotalBytes)
+	return l
+}
+
+// secretoDescarga lee DOCUMENTOS_URL_SECRETO. Sin él, en desarrollo se genera uno aleatorio (las
+// URL firmadas dejan de valer al reiniciar); en producción es obligatorio.
+func secretoDescarga() []byte {
+	if s := os.Getenv("DOCUMENTOS_URL_SECRETO"); s != "" {
+		return []byte(s)
+	}
+	if os.Getenv("APP_ENV") == "production" {
+		log.Fatal("[FATAL] DOCUMENTOS_URL_SECRETO es obligatorio en producción")
+	}
+	log.Println("[WARN] DOCUMENTOS_URL_SECRETO no definido: se usa un secreto aleatorio de desarrollo")
+	secreto := make([]byte, 32)
+	if _, err := rand.Read(secreto); err != nil {
+		log.Fatalf("[FATAL] no se pudo generar el secreto de descarga: %v", err)
+	}
+	return secreto
+}
+
+// vigenciaDescarga lee DOCUMENTOS_URL_VIGENCIA (p. ej. "5m").
+func vigenciaDescarga() time.Duration {
+	if d, err := time.ParseDuration(os.Getenv("DOCUMENTOS_URL_VIGENCIA")); err == nil && d > 0 {
+		return d
+	}
+	return application.DefaultVigenciaDescarga
 }
