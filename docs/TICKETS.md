@@ -172,9 +172,9 @@
   * Llave: `srp:dev:auth:reg:attempts:{cedula}` con TTL de 600 segundos (10 min).
   * Al 3er intento fallido consecutivo: bloqueo automático y respuesta HTTP 423 con `Retry-After: 600`.
 * **Criterios de Aceptación:**
-  - [ ] Al 3er intento fallido consecutivo el sistema bloquea y responde con mensaje exacto del RF: *"registro fallido, inténtelo nuevamente en 10 minutos"*.
-  - [ ] Transcurridos los 10 minutos (TTL expira), el contador se reinicia automáticamente sin intervención manual.
-  - [ ] Demostrable en vivo mediante `redis-cli TTL`.
+  - [x] Al 3er intento fallido consecutivo el sistema bloquea y responde con mensaje exacto del RF: *"registro fallido, inténtelo nuevamente en 10 minutos"*.
+  - [x] Transcurridos los 10 minutos (TTL expira), el contador se reinicia automáticamente sin intervención manual.
+  - [x] Demostrable en vivo mediante `redis-cli TTL`.
 
 ---
 
