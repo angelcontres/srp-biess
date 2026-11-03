@@ -1,4 +1,6 @@
 import { LogOut } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { RUTAS } from '@/features/auth/session/routes';
 import iconoBiess from '@/assets/icono-biess.svg';
 
 export interface NavbarProps {
@@ -11,7 +13,7 @@ export default function Navbar({ userName, onLogout }: NavbarProps) {
   return (
     <>
       <header className="bg-primary text-white">
-        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 py-2 sm:px-6">
+        <div className="mx-auto flex min-h-16 max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 sm:flex-nowrap sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <img
               src={iconoBiess}
@@ -29,7 +31,14 @@ export default function Navbar({ userName, onLogout }: NavbarProps) {
           </div>
 
           {userName ? (
-            <div className="flex shrink-0 items-center gap-3">
+            // < 640 px: link and "Salir" drop to a second row so the title keeps its width (WCAG 1.4.10).
+            <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:shrink-0 sm:justify-start">
+              <Link
+                to={RUTAS.miPostulacion}
+                className="inline-flex h-11 items-center text-base text-white underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                Mi postulación
+              </Link>
               <span className="hidden text-base sm:inline">{userName}</span>
               <button
                 type="button"

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { validatePdf } from '@/components/ui/FileUpload';
 import { mockGateway } from '../services/mockGateway';
 import type { PostulacionGateway } from '../services';
@@ -11,7 +12,12 @@ const estadoCivil = () => screen.getByRole('combobox', { name: /Estado civil/ })
 
 async function abrirPersonal(gateway: PostulacionGateway = mockGateway) {
   const user = userEvent.setup();
-  render(<PostulacionPage gateway={gateway} />);
+  // The views link to "Mi postulación", so they need a router.
+  render(
+    <MemoryRouter>
+      <PostulacionPage gateway={gateway} />
+    </MemoryRouter>,
+  );
   await screen.findByRole('heading', { level: 1, name: 'Información personal' }, ESPERA);
   await screen.findByRole('combobox', { name: /Estado civil/ }, ESPERA);
   return user;
@@ -73,6 +79,21 @@ describe('PostulacionPage (SRP-013)', () => {
 
     expect(await screen.findByRole('dialog', { name: 'Tiene cambios sin guardar en esta sección.' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Seguir editando' })).toBe(document.activeElement);
+  });
+
+  it('una postulación NO_ELEGIBLE se muestra en solo lectura y sin acciones de guardado', async () => {
+    const cerrada: PostulacionGateway = {
+      ...mockGateway,
+      async cargar() {
+        const datos = await mockGateway.cargar();
+        return { ...datos, postulacion: { ...datos.postulacion, estado: 'NO_ELEGIBLE' } };
+      },
+    };
+    await abrirPersonal(cerrada);
+    expect(screen.getByText('Su postulación ya no admite cambios.')).toBeTruthy();
+    expect(estadoCivil().matches(':disabled')).toBe(true); // disabled through its fieldset
+    expect(screen.queryByRole('button', { name: 'Guardar y continuar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Guardar progreso/ })).toBeNull();
   });
 
   it('las secciones posteriores a Cargo aparecen como no disponibles sin elegibilidad', async () => {
