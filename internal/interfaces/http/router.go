@@ -15,7 +15,6 @@ type RouterConfig struct {
 	EligibilityHandler *handlers.EligibilityHandler
 	PostulacionHandler *handlers.PostulacionHandler
 	CatalogoHandler    *handlers.CatalogoHandler
-	PaymentHandler     *handlers.PaymentHandler
 	AuthService        *application.AuthService
 }
 
@@ -59,11 +58,6 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 
 	if cfg.AuthHandler != nil {
 		v1.Post("/validaciones/cedula", cfg.AuthHandler.ValidarCedula)
-	}
-
-	if cfg.PaymentHandler != nil && cfg.AuthService != nil {
-		payments := v1.Group("/postulaciones/:id", middleware.JWTProtected(cfg.AuthService))
-		payments.Post("/pagos", cfg.PaymentHandler.Pay)
 	}
 
 	// -----------------------------------------------------------------

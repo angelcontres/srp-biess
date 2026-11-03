@@ -164,10 +164,17 @@
   * faltan cantones en varias provincias (entre otros Azuay, Guayas, Loja, Morona Santiago, Chimborazo, Los Ríos y Santa Elena);
   * el `CHECK ck_domicilio_pais_ec` de `domicilio_postulante` depende del id de Ecuador en la semilla (`52`).
 * **Criterios de Aceptación:**
-  - [ ] Los cantones vigentes con su código oficial del INEC, cargados desde una fuente citada en el script con fecha de corte.
-  - [ ] El script sigue siendo idempotente (se puede ejecutar dos veces sin errores).
-  - [ ] La restricción de domicilio identifica a Ecuador sin depender de un id fijo (por ejemplo, con un trigger que compare `codigo_iso2 = 'EC'`).
-  - [ ] Se invalida la caché de catálogos incrementando `srp:dev:cat:version` (SRP-007).
+  - [x] Los cantones vigentes con su código oficial del INEC, cargados desde una fuente citada en el script con fecha de corte.
+  - [x] El script sigue siendo idempotente (se puede ejecutar dos veces sin errores).
+  - [x] La restricción de domicilio identifica a Ecuador sin depender de un id fijo (por ejemplo, con un trigger que compare `codigo_iso2 = 'EC'`).
+  - [x] Se invalida la caché de catálogos incrementando `srp:dev:cat:version` (SRP-007). Es un paso del despliegue (ver abajo), no del script SQL.
+* **Notas de implementación (integración autorizada por el responsable del frontend):**
+  * **Fuente:** INEC, Clasificador Geográfico Estadístico, códigos DPA 2026 (`cdpa2026.xlsx`, hoja CANTONES, publicado el 27/02/2026, descargado el 03/11/2026 de `aplicaciones2.ecuadorencifras.gob.ec/SIN`). 222 cantones en las 24 provincias; se excluye la "Zona en estudio" (código 90, 2 cantones), que no pertenece a ninguna provincia. Los nombres se pasan de mayúsculas a mayúscula inicial (DESIGN.md prohíbe mayúsculas sostenidas); Quito figura con su nombre oficial, "Distrito Metropolitano de Quito".
+  * El ejemplo del issue #37 tampoco coincidía con el INEC: `0102` es Girón, `0103` Gualaceo, `0105` Paute y `0111` Chordeleg. Hay huecos oficiales en la numeración (Guayas no tiene `0915`, `0917` ni `0926`; Napo no tiene `1502`, `1505`, `1506` ni `1508`; Pichincha no tiene `1706`).
+  * **Idempotencia:** el id del cantón es su código sin el cero inicial (`0101` → 101) y la carga hace `ON CONFLICT (id) DO UPDATE`, así que un cambio de nombre o código sí se aplica. Los cantones del Ecuador que no están en la fuente se desactivan (`activo = false`), no se borran, para no romper domicilios. En bases creadas con la semilla anterior (ids que no coincidían con el código) se libera primero su código; esas bases quedan corregidas, pero los ids viejos que tuvieran los borradores pasan a otro cantón, así que conviene recrearlas.
+  * **Domicilio:** el `CHECK ck_domicilio_pais_ec` se reemplazó por el trigger `trg_domicilio_valida_ubicacion` (`INSERT` y `UPDATE`), que reconoce a Ecuador por `codigo_iso2 = 'EC'` y además verifica que el cantón pertenezca a la provincia y la provincia al país. En una base existente lo aplica `db/migrations/003_domicilio_ecuador_por_iso.sql`.
+  * **Pruebas:** `repositories_test.go` busca a Ecuador por `EC` (antes usaba el id 1) y verifica los 222 cantones, códigos conocidos y que los códigos inexistentes no estén activos. Las pruebas se omiten si PostgreSQL no está disponible.
+  * **Al desplegar:** recrear la base o volver a ejecutar `db/init.sql`, y luego invalidar la caché: `docker exec srp-biess-redis redis-cli INCR srp:dev:cat:version`.
 * **Nota de revisión:** el `ON CONFLICT (provincia_id, codigo) DO NOTHING` con ids explícitos no actualiza las filas cuyo código cambia: el conflicto aparece por la clave primaria `id` y el catálogo queda corrido aunque el script "pase dos veces". Ver el issue #37.
 
 ---
@@ -234,6 +241,7 @@
 ---
 
 ### Ticket `SRP-010`: Pasarela de Pago con Tarjeta (Luhn) y Facturación SRI Mockeable
+* **Estado:** **Retirado (03/11/2026).** La postulación al Directorio del BIESS es gratuita: no se cobra arancel ni tasa y no se emiten facturas. Se eliminó el código (`domain/payment.go`, `application/payment_service.go`, `infrastructure/payments/`, `database/payment_repository.go`, `handlers/payment_handler.go` y la ruta `POST /postulaciones/{id}/pagos`), las tablas `transaccion_pago` y `factura`, sus tipos, la columna `postulacion.estado_arancel`, el valor `COMPROBANTE_PAGO` de `tipo_documento` y el campo `Cargo.Arancel`. En una base existente se aplica `db/migrations/002_eliminar_pagos.sql`. RF-PAG-01, RF-PAG-02, RN-42, RN-43 y el ADR-014 quedan marcados como retirados en el SRS y el SDD. Se conserva la descripción original solo como registro.
 * **Tipo:** Feature / Pagos
 * **Asignado:** Jose Daniel Gonzalez Cochea
 * **Rama:** `feature/mocks-payments-invoicing`
@@ -342,7 +350,7 @@
   * Prueba de integración contra el seed: `go test ./internal/interfaces/http/handlers -run Catalogo -v`.
   * **Caché (SRP-007, PR #32):** `cmd/api/main.go` envuelve el repositorio con `cache.NewCachedCatalogoRepository` (cache-aside, TTL 24 h ± 5 min, claves `srp:{env}:cat:{recurso}:v{n}`). Si Redis no responde, los catálogos se leen de PostgreSQL. Tras actualizar la semilla (SRP-019) se debe invalidar la caché incrementando `srp:dev:cat:version`.
   * `GET /catalogos/paises` incluye `codigo` (ISO 3166-1 alfa-2): la SPA reconoce a Ecuador por `EC` y no por su id (en la semilla actual, `id = 52`).
-  * **Semilla (`db/init.sql`):** 194 países, las 24 provincias del Ecuador con códigos INEC y 199 cantones asignados a su provincia. Los códigos oficiales de cantón y los cantones faltantes quedan en SRP-019.
+  * **Semilla (`db/init.sql`):** 194 países, las 24 provincias del Ecuador y sus 222 cantones con el código oficial del INEC (ver SRP-019). Con el catálogo completo, todas las provincias tienen cantones y el aviso de "provincia sin cantones" ya no aparece.
 
 ---
 

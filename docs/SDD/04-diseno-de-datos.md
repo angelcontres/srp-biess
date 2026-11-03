@@ -233,6 +233,8 @@ erDiagram
 
 ### 4.6.6 Pagos y facturación electrónica (ADR-014)
 
+> **Retirado (03/11/2026).** La postulación al Directorio del BIESS es gratuita: no se cobra arancel ni tasa y no se emiten facturas. Esta sección se conserva solo como registro. Ver `db/migrations/002_eliminar_pagos.sql` y SRP-010 en `docs/TICKETS.md`.
+
 | Tabla | Columnas principales |
 |---|---|
 | `transaccion_pago` | `id`, `postulacion_id`, `postulante_id`, `codigo_transaccion`, `monto`, `moneda`, `franquicia`, `ultimos_cuatro`, `estado` (`PENDIENTE`, `APROBADO`, `RECHAZADO`, `REVERTIDO`), `gateway_provider` (`MOCK`, `KUSHKI`, `STRIPE`), `autorizacion_codigo`, `fecha_transaccion`, `error_mensaje` |

@@ -72,7 +72,7 @@ func TestCatalogoHandler_Cascada(t *testing.T) {
 
 	_, body = llamar(t, app, http.MethodGet, "/api/v1/catalogos/provincias/17/cantones", "", nil)
 	cantones := nombres(body)
-	if !contiene(cantones, "Quito") || contiene(cantones, "Guayaquil") {
+	if !contiene(cantones, "Distrito Metropolitano de Quito") || contiene(cantones, "Guayaquil") {
 		t.Fatalf("solo debían llegar cantones de Pichincha, obtenido %v", cantones)
 	}
 

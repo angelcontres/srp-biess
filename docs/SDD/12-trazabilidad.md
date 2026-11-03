@@ -53,8 +53,8 @@ Este capítulo conecta los requisitos del SRS con las decisiones de diseño, los
 | RF-CAT-04 | `CatalogoCache` | Redis | — | IT-34 |
 | RF-CAT-05 | `CatalogoCache` | Invalidación | — | IT-35 |
 | RF-VAL-01 | `NationalIDValidator` (Módulo 10) | `POST /validaciones/cedula` | — | UT-02 |
-| RF-PAG-01 | `PagoService`, `PaymentGateway` (Luhn/Mock) | `POST /postulaciones/{id}/pagos` | `transaccion_pago` | IT-36 |
-| RF-PAG-02 | `InvoicingService`, `NotificationWorker` | `GET /postulaciones/{id}/factura` | `factura`, `notificacion` | IT-37 |
+| RF-PAG-01 (retirado) | `PagoService`, `PaymentGateway` (Luhn/Mock) | `POST /postulaciones/{id}/pagos` | `transaccion_pago` | IT-36 |
+| RF-PAG-02 (retirado) | `InvoicingService`, `NotificationWorker` | `GET /postulaciones/{id}/factura` | `factura`, `notificacion` | IT-37 |
 
 ---
 

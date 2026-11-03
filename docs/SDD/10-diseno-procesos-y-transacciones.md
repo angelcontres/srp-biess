@@ -557,6 +557,8 @@ sequenceDiagram
 
 ### 10.15.2 Transacción de pago con tarjeta y emisión de factura
 
+> **Retirado (03/11/2026).** La postulación al Directorio del BIESS es gratuita: no se cobra arancel ni tasa y no se emiten facturas. Esta sección se conserva solo como registro. Ver `db/migrations/002_eliminar_pagos.sql` y SRP-010 en `docs/TICKETS.md`.
+
 ```mermaid
 sequenceDiagram
   participant SPA as SPA (Postulante)

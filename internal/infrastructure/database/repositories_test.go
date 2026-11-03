@@ -16,6 +16,9 @@ func getTestPool(t *testing.T) database.Querier {
 	defer cancel()
 
 	pool, err := database.NewPostgresPool(ctx)
+	if err == nil {
+		err = pool.Ping(ctx) // el pool se crea aunque PostgreSQL esté apagado
+	}
 	if err != nil {
 		t.Skipf("Omitiendo pruebas de base de datos relacional (PostgreSQL no disponible): %v", err)
 		return nil
@@ -62,13 +65,71 @@ func TestPostgresCatalogoRepository(t *testing.T) {
 		}
 	})
 
-	t.Run("Consultar provincias de Ecuador (ID=1)", func(t *testing.T) {
-		provincias, err := repo.GetProvincias(ctx, "1")
+	// Ecuador se identifica por su código ISO, no por el id de la semilla (SRP-019).
+	ecuadorID := func(t *testing.T) string {
+		t.Helper()
+		paises, err := repo.GetPaises(ctx)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		for _, p := range paises {
+			if p.Codigo == "EC" {
+				return p.ID
+			}
+		}
+		t.Fatal("no se encontró Ecuador (EC) en el catálogo de países")
+		return ""
+	}
+
+	t.Run("Consultar provincias de Ecuador", func(t *testing.T) {
+		provincias, err := repo.GetProvincias(ctx, ecuadorID(t))
 		if err != nil {
 			t.Fatalf("error: %v", err)
 		}
 		if len(provincias) != 24 {
 			t.Errorf("provincias esperadas 24, obtenidas: %d", len(provincias))
+		}
+	})
+
+	t.Run("Cantones con código oficial del INEC (DPA 2026)", func(t *testing.T) {
+		provincias, err := repo.GetProvincias(ctx, ecuadorID(t))
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		porCodigo := map[string]string{}
+		total := 0
+		for _, p := range provincias {
+			cantones, err := repo.GetCantones(ctx, p.ID)
+			if err != nil {
+				t.Fatalf("cantones de %s: %v", p.Nombre, err)
+			}
+			if len(cantones) == 0 {
+				t.Errorf("la provincia %s no tiene cantones", p.Nombre)
+			}
+			total += len(cantones)
+			for _, c := range cantones {
+				porCodigo[c.ID] = c.Nombre
+			}
+		}
+		if total != 222 {
+			t.Errorf("cantones activos esperados 222, obtenidos: %d", total)
+		}
+		// El id del cantón es su código INEC sin el cero inicial.
+		conocidos := map[string]string{
+			"101": "Cuenca", "102": "Girón", "103": "Gualaceo", "105": "Paute", "111": "Chordeleg",
+			"901": "Guayaquil", "927": "General Antonio Elizalde", "1701": "Distrito Metropolitano de Quito",
+			"2403": "Salinas",
+		}
+		for id, nombre := range conocidos {
+			if porCodigo[id] != nombre {
+				t.Errorf("cantón %s: esperado %q, obtenido %q", id, nombre, porCodigo[id])
+			}
+		}
+		// Códigos que no existen en el INEC (antes los generaba la semilla secuencial).
+		for _, id := range []string{"915", "1502", "1706"} {
+			if nombre, ok := porCodigo[id]; ok {
+				t.Errorf("el cantón %s (%s) no debería estar activo", id, nombre)
+			}
 		}
 	})
 

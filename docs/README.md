@@ -23,10 +23,9 @@
 | Registro y autenticación | EF-11 | ✅ Sí | Validación de identidad, registro, inicio de sesión, bloqueo temporal y recuperación de contraseña. |
 | Formulario de postulación | EF-12 | ✅ Sí | Formulario por secciones, catálogos geográficos, documentos PDF, elegibilidad, guardado de progreso y envío. |
 | Validación de identidad y cédula | Soporte / ADR-013 | ✅ Sí | Validación algorítmica Módulo 10 ecuatoriano e interoperabilidad con Registro Civil. |
-| Pagos y facturación electrónica | Soporte / ADR-014 | ✅ Sí | Validación de tarjeta (Luhn), pasarela mockeable y emisión/envío de factura con clave de acceso SRI. |
 | Catálogos geográficos | Soporte | ✅ Sí | Países, provincias y cantones, con caché en Redis. |
 | Gestión documental | Soporte | ✅ Sí | Carga, validación, almacenamiento y descarga de PDF. |
-| Notificaciones | Soporte | ✅ Sí | Recuperación de contraseña, factura electrónica y envío de la postulación en PDF. |
+| Notificaciones | Soporte | ✅ Sí | Recuperación de contraseña y envío de la postulación en PDF. |
 | Auditoría | Soporte | ✅ Sí | Eventos críticos y cambios sobre la postulación. |
 | Módulo de administración | EF-13 | ❌ Futuro | Se documenta solo como interfaz futura. |
 | Banco de preguntas y evaluación | EF-14 | ❌ Futuro | Fuera del primer parcial. |

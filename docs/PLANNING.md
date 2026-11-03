@@ -6,7 +6,7 @@
 | **Documento** | Plan de Implementación, Cronograma y Gestión de Entrega |
 | **Asignatura** | Frameworks de Programación Web — Examen Práctico del Primer Parcial |
 | **Ponderación** | 40 Puntos (100% de la evaluación práctica) |
-| **Versión** | 1.0 |
+| **Versión** | 1.1 (03/11/2026: se retiran pagos y facturación; la postulación es gratuita) |
 | **Fecha de emisión** | 31/10/2026 |
 | **Duración estimada** | 5 días intensivos (Sprints diarios / hitos de entrega) |
 
@@ -44,7 +44,7 @@ flowchart TD
   F0["Fase 0: Entorno e Infraestructura"]
   F1["Fase 1: Backend Core & Dominio"]
   F2["Fase 2: Persistencia, Redis & Caché"]
-  F3["Fase 3: Integraciones, Mocks & Pagos"]
+  F3["Fase 3: Integraciones & Mocks"]
   F4["Fase 4: Frontend SPA Modular"]
   F5["Fase 5: Integración E2E & Generación PDF"]
   F6["Fase 6: Auditoría, QA & Sustentación"]
@@ -84,14 +84,11 @@ flowchart TD
   * `POST /api/v1/auth/recuperar-password` y `POST /api/v1/auth/restablecer-password`
 * [ ] **T2.5:** Middleware de autenticación JWT y manejo global de errores JSON.
 
-### Fase 3: Reglas de Negocio EF-12, Mocks de Integración y Pagos (Día 3)
+### Fase 3: Reglas de Negocio EF-12 y Mocks de Integración (Día 3)
 * [ ] **T3.1:** Implementación de adaptadores de interoperabilidad:
   * `IdentityProvider` (Registro Civil: simulación de biometría dactilar y fecha de expedición).
   * `EmploymentHistoryProvider` (IESS: verificación de condición de afiliado, jubilado o empleador).
-* [ ] **T3.2:** Implementación de `PaymentGateway` y `InvoicingService` (ADR-014):
-  * Algoritmo de validación de tarjeta (Luhn).
-  * Adaptador `MockPaymentGateway` (aprobado vs. fondos insuficientes).
-  * Generador de clave de acceso de 49 dígitos del SRI y comprobante digital.
+* ~~**T3.2:** Implementación de `PaymentGateway` y `InvoicingService` (ADR-014): validación de tarjeta (Luhn), adaptador `MockPaymentGateway` y clave de acceso del SRI.~~ **Retirado (03/11/2026): la postulación es gratuita, sin pagos ni facturación (ver SRP-010 y SRP-016 en `docs/TICKETS.md`).**
 * [ ] **T3.3:** Servicios de postulación multi-sección:
   * Validación estricta de nacionalidad ecuatoriana (cierre si es extranjera).
   * Validación de cargo vs. calidad IESS.
@@ -114,18 +111,15 @@ flowchart TD
   * Cascada geográfica reactiva: selector País → Provincia → Cantón (con carga manual si país $\ne$ Ecuador).
   * Formulario de formación académica, experiencia y publicaciones con modales de carga de documentos PDF.
   * Cuestionario interactivo de inhabilidades y módulo de consentimiento informado.
-* [ ] **T4.5:** Pantalla de Checkout / Pago de Arancel (ADR-014):
-  * Formulario reactivo de tarjeta de crédito/débito con detección visual de franquicia (Visa/Mastercard) y validación en tiempo real.
-  * Visualización y descarga inmediata de la factura electrónica emitida.
+* ~~**T4.5:** Pantalla de Checkout / Pago de Arancel (ADR-014): formulario de tarjeta y descarga de la factura electrónica.~~ **Retirado (03/11/2026): la postulación es gratuita, sin pagos ni facturación (ver SRP-010 y SRP-016 en `docs/TICKETS.md`).**
 
 ### Fase 5: Generación de PDF, Outbox Worker y Pruebas (Día 4 - Noche)
 * [ ] **T5.1:** Generación en servidor del PDF del Formulario de Postulación con plantilla institucional y marcas para firma física.
 * [ ] **T5.2:** Worker en segundo plano para despacho de correos pendientes desde `notificacion` (Outbox) hacia Mailpit / SMTP.
 * [ ] **T5.3:** Pruebas unitarias en Go para:
   * Validador Módulo 10 de cédula.
-  * Validador de Luhn para tarjetas.
   * Calculadora de experiencia.
-* [ ] **T5.4:** Pruebas de integración para transacciones de PostgreSQL (verificación de rollback ante fallo de inserción de documentos o pagos).
+* [ ] **T5.4:** Pruebas de integración para transacciones de PostgreSQL (verificación de rollback ante fallo de inserción de documentos).
 * [ ] **T5.5:** Pruebas de resiliencia ante caída de Redis (fallback a PostgreSQL en catálogos y fail-closed en autenticación).
 
 ### Fase 6: Auditoría, Documentación Final y Ensayo de Sustentación (Día 5)
@@ -148,11 +142,10 @@ gantt
     Dominio, DI & Validador Cédula  :active,  des2, 2026-11-01, 2d
     Persistencia Postgres & Tx      :         des3, 2026-11-02, 2d
     Redis Cache & Lock 10 min       :         des4, 2026-11-02, 2d
-    Mocks Registro Civil, IESS, Pago:         des5, 2026-11-03, 2d
+    Mocks Registro Civil e IESS     :         des5, 2026-11-03, 2d
     section Frontend SPA (React)
     Auth UI & Cascada Geográfica    :         des6, 2026-11-02, 3d
     Formulario EF-12 & Secciones    :         des7, 2026-11-03, 3d
-    Pasarela Tarjeta & Facturación  :         des8, 2026-11-04, 2d
     section Integración & Cierre
     PDF en Servidor & Outbox Worker :         des9, 2026-11-04, 2d
     QA, Pruebas E2E & Rúbrica Check :        des10, 2026-11-05, 1d
@@ -167,7 +160,7 @@ El proyecto se divide de forma equilibrada entre los 4 integrantes del equipo:
 * **Paulo Rafael Orrala Arriaga (Backend Lead & Inyección de Dependencias):** Arquitectura por capas desacoplada en Go Fiber, *Composition Root*, handlers, routers y middlewares de seguridad.
 * **Angel Alejandro Villon Panimboza (Data & Persistence Lead):** Modelado DDL relacional en PostgreSQL, transacciones atómicas con `TxManager` (`BEGIN/COMMIT/ROLLBACK`), control de concurrencia optimista y gestión de persistencia.
 * **Carlos Fernando Patiño Garcia (Frontend SPA Lead):** UI modular en React + Vite + Tailwind CSS, consumo asíncrono, rutas protegidas, gestión de estado y cascada reactiva País $\to$ Provincia $\to$ Cantón.
-* **Jose Daniel Gonzalez Cochea (Cache, Integraciones, Pagos & QA):** Redis (bloqueo de 10 min por 3 intentos y caché con TTL), validador Módulo 10, Mocks de Registro Civil e IESS, pasarela de pago (Luhn), facturación electrónica SRI y PDF.
+* **Jose Daniel Gonzalez Cochea (Cache, Integraciones & QA):** Redis (bloqueo de 10 min por 3 intentos y caché con TTL), validador Módulo 10, Mocks de Registro Civil e IESS y PDF. La pasarela de pago y la facturación SRI se retiraron el 03/11/2026.
 
 | Tarea / Componente | Paulo Rafael Orrala (Backend Lead) | Angel Alejandro Villon (Data Lead) | Carlos Fernando Patiño (Frontend SPA) | Jose Daniel Gonzalez (Cache & QA) |
 |---|:---:|:---:|:---:|:---:|
@@ -177,8 +170,8 @@ El proyecto se divide de forma equilibrada entre los 4 integrantes del equipo:
 | Componentes React, Tailwind CSS y estados reactivos | I | I | **R / A** | C |
 | Consumo asíncrono, rutas protegidas y manejo de errores UI | C | I | **R / A** | C |
 | Cascada geográfica País → Provincia → Cantón en frontend | I | I | **R / A** | I |
-| Algoritmo Módulo 10 de cédula ecuatoriana y validador Luhn | C | I | C | **R / A** |
-| Mocks de Registro Civil, Historial Laboral IESS y Pago/Factura SRI | C | C | I | **R / A** |
+| Algoritmo Módulo 10 de cédula ecuatoriana | C | I | C | **R / A** |
+| Mocks de Registro Civil e Historial Laboral IESS | C | C | I | **R / A** |
 | Generación de PDF institucional en servidor y Outbox worker | I | C | C | **R / A** |
 | Plan de pruebas, verificación de rúbrica y guion de sustentación | C | C | C | **R / A** |
 
@@ -197,12 +190,12 @@ Para cumplir con el criterio de entrega del repositorio (*"historial de commits 
   * **Paulo Rafael Orrala Arriaga:** `feature/backend-clean-arch`, `feature/auth-jwt-di`
   * **Angel Alejandro Villon Panimboza:** `feature/postgres-transactions-ddl`, `feature/outbox-persistence`
   * **Carlos Fernando Patiño Garcia:** `feature/frontend-spa-ui`, `feature/cascading-selects-forms`
-  * **Jose Daniel Gonzalez Cochea:** `feature/redis-cache-lock`, `feature/mocks-payments-invoicing`
+  * **Jose Daniel Gonzalez Cochea:** `feature/redis-cache-lock`, `feature/mocks-payments-invoicing` (pagos retirados el 03/11/2026)
 
 ### Convención de Commits (Conventional Commits)
 * `feat(...)`: Nueva funcionalidad (ej. `feat(auth): implementar bloqueo temporal en redis tras 3 intentos`).
 * `fix(...)`: Corrección de errores (ej. `fix(cedula): corregir calculo de decena superior en modulo 10`).
-* `docs(...)`: Cambios en documentación (ej. `docs(sdd): anadir adr-014 para pagos y facturacion`).
+* `docs(...)`: Cambios en documentación (ej. `docs(sdd): anadir adr-013 para validacion de cedula`).
 * `refactor(...)`: Mejoras de código sin cambiar comportamiento (ej. `refactor(di): desacoplar repositorios mediante querier`).
 * `test(...)`: Incorporación de pruebas unitarias o de integración.
 
@@ -217,7 +210,7 @@ Cada integrante cuenta con **2 minutos y 30 segundos** para demostrar su dominio
 | **00:00 - 02:30** | **1. Arquitectura Backend & DI (8 pts)** | **Paulo Rafael Orrala Arriaga** | Abre `cmd/api/main.go` (Composition Root), explica la inyección de dependencias desacoplada (Handler $\to$ Service $\to$ Repository) y el manejo de errores nativos en Go. |
 | **02:30 - 05:00** | **2. Persistencia Transaccional & Rollback (8 pts)** | **Angel Alejandro Villon Panimboza** | Muestra el script DDL normalizado en PostgreSQL, explica el `TxManager` y demuestra en vivo una inserción multi-tabla con rollback atómico ante fallo simulado. |
 | **05:00 - 07:30** | **3. Frontend SPA & Consumo Asíncrono (12 pts)** | **Carlos Fernando Patiño Garcia** | Demuestra la SPA en React + Vite + Tailwind: navegación reactiva, feedback visual inmediato (loaders y alertas de error), protección de rutas por token JWT en cookie y la cascada reactiva País $\to$ Provincia $\to$ Cantón. |
-| **07:30 - 10:00** | **4. Redis, Reglas IESS, Pagos & PDF (12 pts)** | **Jose Daniel Gonzalez Cochea** | Demuestra en vivo los 3 intentos fallidos y el bloqueo de 10 min en Redis (`redis-cli`), el algoritmo de cédula Módulo 10, simulación de pago con tarjeta (Luhn), emisión de factura con clave SRI y generación del PDF final. |
+| **07:30 - 10:00** | **4. Redis, Reglas IESS & PDF (12 pts)** | **Jose Daniel Gonzalez Cochea** | Demuestra en vivo los 3 intentos fallidos y el bloqueo de 10 min en Redis (`redis-cli`), el algoritmo de cédula Módulo 10, la validación de la calidad laboral en el IESS y la generación del PDF final. |
 
 ---
 
