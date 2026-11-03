@@ -10,7 +10,6 @@ var (
 	ErrUnauthorized          = errors.New("credenciales inválidas o no autorizado")
 	ErrPostulacionExists     = errors.New("ya existe una postulación activa para este proceso")
 	ErrIneligibleCandidate   = errors.New("el candidato no cumple los requisitos mínimos de elegibilidad")
-	ErrPaymentFailed         = errors.New("el pago del arancel no pudo ser procesado")
 	ErrExternalUnavailable   = errors.New("servicio externo no disponible, inténtelo más tarde")
 	ErrInvalidTipoValidacion = errors.New("tipo de validación no soportado")
 	ErrInvalidSector         = errors.New("sector de cargo no válido")

@@ -25,10 +25,10 @@ func NewRedisClient(ctx context.Context) *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:         fmt.Sprintf("%s:%s", host, port),
 		Password:     password,
-		DB:           0,
+		DB:           1,
 		DialTimeout:  2 * time.Second,
-		ReadTimeout:  2 * time.Second,
-		WriteTimeout: 2 * time.Second,
+		ReadTimeout:  500 * time.Millisecond,
+		WriteTimeout: 500 * time.Millisecond,
 	})
 
 	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -41,16 +41,4 @@ func NewRedisClient(ctx context.Context) *redis.Client {
 	}
 
 	return rdb
-}
-
-// KeyEnv devuelve el segmento {env} de las claves srp:{env}:... (SDD 4) a partir de APP_ENV.
-func KeyEnv() string {
-	switch env := os.Getenv("APP_ENV"); env {
-	case "", "development":
-		return "dev"
-	case "production":
-		return "prod"
-	default:
-		return env
-	}
 }

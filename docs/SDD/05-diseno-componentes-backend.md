@@ -151,7 +151,7 @@ func main() {
     cache := redis.NewCatalogoCache(rdb)
     attempts := redis.NewAttemptRepository(rdb)
 
-    // Pasarela de pago y facturación (ADR-014: Mockeable pero 100% implementable)
+    // Pasarela de pago y facturación (ADR-014). RETIRADO (03/11/2026): la postulación es gratuita.
     var paymentGateway domain.PaymentGateway
     if cfg.Env == "production" && cfg.PaymentProvider == "kushki" {
         paymentGateway = payments.NewKushkiAdapter(cfg.PaymentSecret)

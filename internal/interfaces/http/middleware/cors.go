@@ -11,6 +11,7 @@ func NewCORS() fiber.Handler {
 		AllowOrigins:     "http://localhost:3000, http://127.0.0.1:3000, http://localhost:5173, http://127.0.0.1:5173",
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Request-ID",
+		ExposeHeaders:    "Retry-After, X-Request-ID",
 		AllowCredentials: true,
 	})
 }

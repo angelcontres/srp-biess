@@ -33,11 +33,11 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 		auth := v1.Group("/auth")
 
 		// Endpoints públicos
-		// TODO(backend: SRP-008): esta ruta no existe en el SDD. SDD 7.3.4 / 7.6.1 la define como
-		// POST /api/v1/validaciones/cedula (pública, fuera de /auth) y responde
-		// { valida, provincia, codigoProvincia, tipo, algoritmo }; el 422 usa VAL_CEDULA_INVALIDA.
-		// El frontend (SRP-012) no la consume todavía.
-		auth.Post("/validate-cedula", cfg.AuthHandler.ValidarCedula)
+		// Compatibilidad con el endpoint anterior; el contrato canónico está fuera de /auth.
+		auth.Post("/validate-cedula", func(c *fiber.Ctx) error {
+			c.Set("Deprecation", "true")
+			return c.Next()
+		}, cfg.AuthHandler.ValidarCedula)
 		auth.Post("/login", cfg.AuthHandler.Login)
 		auth.Post("/refresh", cfg.AuthHandler.Refresh)
 		// Se registra antes del grupo protegido para que no la alcance el middleware JWT (ver TODO SRP-018).
@@ -54,6 +54,10 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 			protected.Get("/me", cfg.AuthHandler.Me)
 			protected.Post("/logout", cfg.AuthHandler.Logout)
 		}
+	}
+
+	if cfg.AuthHandler != nil {
+		v1.Post("/validaciones/cedula", cfg.AuthHandler.ValidarCedula)
 	}
 
 	// -----------------------------------------------------------------

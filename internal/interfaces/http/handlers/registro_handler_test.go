@@ -108,3 +108,34 @@ func TestAuthHandler_ValidarIdentidadRegistro(t *testing.T) {
 		}
 	})
 }
+
+func TestAuthHandler_RegistroBloqueadoDevuelve423YRetryAfter(t *testing.T) {
+	app, svc, _ := setupRegistroApp()
+	store := &blockedAttemptStore{}
+	svc.WithAuthAttemptStore(store)
+
+	resp, body := postValidarIdentidad(t, app, "0926687856", "FECHA_EXPEDICION", "2019-05-14")
+	if resp.StatusCode != http.StatusLocked {
+		t.Fatalf("status = %d; want 423 (%v)", resp.StatusCode, body)
+	}
+	if got := resp.Header.Get("Retry-After"); got != "600" {
+		t.Fatalf("Retry-After = %q; want 600", got)
+	}
+	if body["error"] != "registro fallido, inténtelo nuevamente en 10 minutos" {
+		t.Fatalf("mensaje inesperado: %v", body["error"])
+	}
+}
+
+type blockedAttemptStore struct{}
+
+func (blockedAttemptStore) CheckBlocked(context.Context, domain.AuthFlow, string) (time.Duration, error) {
+	return 10 * time.Minute, nil
+}
+
+func (blockedAttemptStore) RecordFailure(context.Context, domain.AuthFlow, string) (bool, time.Duration, error) {
+	return true, 10 * time.Minute, nil
+}
+
+func (blockedAttemptStore) Reset(context.Context, domain.AuthFlow, string) error {
+	return nil
+}

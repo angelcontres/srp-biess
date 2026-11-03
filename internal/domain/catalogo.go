@@ -23,12 +23,11 @@ type Canton struct {
 }
 
 type Cargo struct {
-	ID                 string  `json:"id"`
-	Nombre             string  `json:"nombre"`
-	Descripcion        string  `json:"descripcion"`
-	ExperienciaMinAnos int     `json:"experiencia_min_anos"`
-	Arancel            float64 `json:"arancel"`
-	Activo             bool    `json:"activo"`
+	ID                 string `json:"id"`
+	Nombre             string `json:"nombre"`
+	Descripcion        string `json:"descripcion"`
+	ExperienciaMinAnos int    `json:"experiencia_min_anos"`
+	Activo             bool   `json:"activo"`
 }
 
 // CatalogoRepository define el acceso a catálogos con estrategia de cache.

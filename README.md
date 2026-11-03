@@ -60,7 +60,7 @@ Una vez iniciado Docker Compose:
 |---|---|---|
 | **PostgreSQL 16** | `localhost:5432` | BD: `srp_biess` \| Usuario: `srp_user` \| Pass: `srp_secret_password` |
 | **Redis 7** | `localhost:6379` | Sin contraseña en desarrollo \| DB: `0` |
-| **Mailpit (Web UI)** | `http://localhost:8025` | **Bandeja de entrada web** para ver correos de verificación y facturas |
+| **Mailpit (Web UI)** | `http://localhost:8025` | **Bandeja de entrada web** para ver los correos de verificación y de envío de la postulación |
 | **Mailpit (SMTP)** | `localhost:1025` | Servidor SMTP local para la API |
 
 ---

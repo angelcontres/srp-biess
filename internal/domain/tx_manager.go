@@ -6,3 +6,9 @@ import "context"
 type TxManager interface {
 	WithTransaction(ctx context.Context, fn func(txCtx context.Context) error) error
 }
+
+type NoopTxManager struct{}
+
+func (NoopTxManager) WithTransaction(ctx context.Context, fn func(txCtx context.Context) error) error {
+	return fn(ctx)
+}

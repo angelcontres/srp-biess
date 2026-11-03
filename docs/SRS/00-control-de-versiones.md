@@ -24,6 +24,7 @@
 | 0.9 | 30/10/2026 | Equipo | Revisión de consistencia con el SDD y la rúbrica. |
 | 1.0 | 31/10/2026 | Equipo | Línea base para la entrega del primer parcial. |
 | 1.1 | 31/10/2026 | Equipo | Incorporación de requisitos de validación algorítmica de cédula (RF-VAL-01), procesamiento de pago con tarjeta (RF-PAG-01) y facturación electrónica (RF-PAG-02). |
+| 1.2 | 03/11/2026 | Equipo | Se retiran RF-PAG-01, RF-PAG-02, RN-42 y RN-43: la postulación es gratuita y no hay pagos ni facturación. |
 
 ---
 

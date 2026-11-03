@@ -43,6 +43,9 @@ func TestMiddlewares(t *testing.T) {
 		if resp.Header.Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
 			t.Errorf("se esperaba Access-Control-Allow-Origin: http://localhost:5173")
 		}
+		if resp.Header.Get("Access-Control-Expose-Headers") != "Retry-After,X-Request-ID" {
+			t.Errorf("se esperaba exposición de Retry-After y X-Request-ID")
+		}
 	})
 
 	t.Run("Recover captura panic y responde 500 JSON", func(t *testing.T) {

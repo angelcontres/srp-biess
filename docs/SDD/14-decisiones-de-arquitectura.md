@@ -234,6 +234,8 @@ Implementar una estrategia de validación en dos capas acoplada mediante una int
 
 ## ADR-014 — Procesamiento de Pagos con Tarjeta y Facturación Electrónica mediante Puertos y Adaptadores (Mockeable e Implementable)
 
+> **Retirado (03/11/2026).** La postulación al Directorio del BIESS es gratuita: no se cobra arancel ni tasa y no se emiten facturas. Esta sección se conserva solo como registro. Ver `db/migrations/002_eliminar_pagos.sql` y SRP-010 en `docs/TICKETS.md`.
+
 **Contexto.**  
 La gestión de trámites administrativos y aranceles/tasas de postulación exige validar instrumentos de pago electrónico (tarjeta de crédito/débito) y emitir la correspondiente factura electrónica con su respectivo comprobante enviado por correo. Dado que en el entorno de desarrollo y sustentación académica no se cuenta con credenciales activas del SRI ni pasarelas de pago transaccionales bancarias de producción (como Kushki, Payphone o Stripe), se requiere una solución que sea **completamente funcional y demostrable mediante Mocks**, pero **100% implementable en producción** con solo inyectar el adaptador real sin alterar el dominio.
 
@@ -281,4 +283,4 @@ Adoptar el patrón de **Arquitectura Hexagonal (Puertos y Adaptadores)** mediant
 | 011 | Outbox | Aceptada |
 | 012 | PDF en servidor | Aceptada |
 | 013 | Validación de cédula Módulo 10 e Interoperabilidad | Aceptada |
-| 014 | Pagos con tarjeta y facturación con Mocks implementables | Aceptada |
+| 014 | Pagos con tarjeta y facturación con Mocks implementables | Retirada (03/11/2026) |

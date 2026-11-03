@@ -24,6 +24,7 @@
 | 0.9 | 30/10/2026 | Equipo | Revisión de seguridad, transacciones y trazabilidad. |
 | 1.0 | 31/10/2026 | Equipo | Línea base para el primer parcial. |
 | 1.1 | 31/10/2026 | Equipo | Incorporación de ADR-013 (Validación Cédula Módulo 10) y ADR-014 (Pago con Tarjeta y Facturación con Mocks implementables), endpoints y DDL asociado. |
+| 1.2 | 03/11/2026 | Equipo | Se retira el ADR-014 con sus endpoints, tablas y flujos: la postulación es gratuita y no hay pagos ni facturación. |
 
 ---
 

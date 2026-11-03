@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -31,30 +30,6 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-// responderControlIntentos traduce el bloqueo a 423 + Retry-After y la caída de Redis a 503 (SRP-006, SDD 9.5).
-// Devuelve false si el error no corresponde al control de intentos.
-func responderControlIntentos(c *fiber.Ctx, err error) (bool, error) {
-	var bloqueo *domain.LockoutError
-	if errors.As(err, &bloqueo) {
-		segundos := int(math.Ceil(bloqueo.RetryAfter.Seconds()))
-		code := "AUTH_REGISTRO_BLOQUEADO"
-		if bloqueo.Scope == domain.ScopeLogin {
-			code = "AUTH_LOGIN_BLOQUEADO"
-		}
-		c.Set(fiber.HeaderRetryAfter, strconv.Itoa(segundos))
-		return true, c.Status(fiber.StatusLocked).JSON(fiber.Map{
-			"success":           false,
-			"code":              code,
-			"error":             bloqueo.Error(),
-			"retryAfterSeconds": segundos,
-		})
-	}
-	if errors.Is(err, domain.ErrAttemptLimiterUnavailable) {
-		return true, c.Status(fiber.StatusServiceUnavailable).JSON(dto.Failure(err.Error()))
-	}
-	return false, nil
-}
-
 // Login maneja la autenticación por cédula y contraseña emitiendo JWT (15 min) y cookie HttpOnly (8 h) (ADR-006, SDD 07).
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req LoginRequest
@@ -68,8 +43,13 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 
 	result, err := h.authService.Login(c.Context(), req.Cedula, req.Password)
 	if err != nil {
-		if ok, resErr := responderControlIntentos(c, err); ok {
-			return resErr
+		var blockedErr *domain.AuthBlockedError
+		if errors.As(err, &blockedErr) {
+			c.Set(fiber.HeaderRetryAfter, strconv.Itoa(retryAfterSeconds(blockedErr.RetryAfter)))
+			return c.Status(fiber.StatusLocked).JSON(dto.Failure("inicio de sesión bloqueado, inténtelo nuevamente en 10 minutos"))
+		}
+		if errors.Is(err, domain.ErrAuthProtectionDown) {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(dto.Failure("El servicio de autenticación no está disponible temporalmente"))
 		}
 		if errors.Is(err, domain.ErrInvalidCredentials) {
 			return c.Status(fiber.StatusUnauthorized).JSON(dto.Failure("Sus credenciales de ingreso son incorrectas"))
@@ -150,8 +130,7 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 	return c.JSON(dto.Success(nil, "Sesión cerrada correctamente"))
 }
 
-// ValidarCedula valida el formato de documento con la estrategia Módulo 10.
-// TODO(backend: SRP-008): alinear ruta y respuesta con SDD 7.6.1 (ver TODO en router.go).
+// ValidarCedula valida una cédula con el algoritmo Módulo 10 (SDD 7.6.1).
 func (h *AuthHandler) ValidarCedula(c *fiber.Ctx) error {
 	var req ValidarCedulaRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -159,13 +138,19 @@ func (h *AuthHandler) ValidarCedula(c *fiber.Ctx) error {
 	}
 
 	if err := h.authService.ValidarIdentidad(req.Cedula); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.Failure(err.Error()))
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(dto.Failure(
+			"VAL_CEDULA_INVALIDA: El número de cédula ingresado no cumple con el algoritmo Módulo 10 ecuatoriano",
+		))
 	}
 
+	codigo, provincia, _ := domain.ProvinciaCedula(req.Cedula)
 	return c.JSON(dto.Success(fiber.Map{
-		"cedula": req.Cedula,
-		"valida": true,
-	}, "Cédula verificada correctamente con algoritmo Módulo 10"))
+		"valida":          true,
+		"provincia":       provincia,
+		"codigoProvincia": codigo,
+		"tipo":            "PERSONA_NATURAL",
+		"algoritmo":       "MODULO_10",
+	}))
 }
 
 // Me retorna la identidad del postulante autenticado mediante el contexto inyectado (SRP-003).
@@ -201,10 +186,13 @@ func (h *AuthHandler) ValidarIdentidadRegistro(c *fiber.Ctx) error {
 
 	res, err := h.authService.ValidarIdentidadRegistro(c.Context(), req.Cedula, domain.TipoValidacion(req.TipoValidacion), req.Valor)
 	if err != nil {
-		if ok, resErr := responderControlIntentos(c, err); ok {
-			return resErr
-		}
+		var blockedErr *domain.AuthBlockedError
 		switch {
+		case errors.As(err, &blockedErr):
+			c.Set(fiber.HeaderRetryAfter, strconv.Itoa(retryAfterSeconds(blockedErr.RetryAfter)))
+			return c.Status(fiber.StatusLocked).JSON(dto.Failure("registro fallido, inténtelo nuevamente en 10 minutos"))
+		case errors.Is(err, domain.ErrAuthProtectionDown):
+			return c.Status(fiber.StatusServiceUnavailable).JSON(dto.Failure("El servicio de autenticación no está disponible temporalmente"))
 		case errors.Is(err, domain.ErrInvalidTipoValidacion):
 			return c.Status(fiber.StatusBadRequest).JSON(dto.Failure("Tipo de validación no soportado"))
 		case errors.Is(err, domain.ErrInvalidCedula):
@@ -230,4 +218,12 @@ func (h *AuthHandler) ValidarIdentidadRegistro(c *fiber.Ctx) error {
 			"nacionalidad":    d.Nacionalidad,
 		},
 	}, "Identidad validada con el Registro Civil"))
+}
+
+func retryAfterSeconds(duration time.Duration) int {
+	seconds := int(duration / time.Second)
+	if seconds < 1 {
+		return 1
+	}
+	return seconds
 }
