@@ -29,41 +29,41 @@ jobs:
     name: CI - Verificación & Pruebas
     runs-on: [self-hosted, Linux]
     steps:
-      - name: Clonar repositorio
+      - name: "Clonar repositorio"
         uses: actions/checkout@v4
 
-      - name: Configurar Go
+      - name: "Configurar Go"
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Configurar Node.js
+      - name: "Configurar Node.js"
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
           cache-dependency-path: 'frontend/package-lock.json'
 
-      - name: [1/5] Validar Arquitectura Limpia (ADR-003) y Compilación Go
+      - name: "[1/5] Validar Arquitectura Limpia (ADR-003) y Compilación Go"
         run: |
           chmod +x verify.sh
           ./verify.sh
 
-      - name: [2/5] Pruebas Unitarias de Dominio y Aplicación en Go
+      - name: "[2/5] Pruebas Unitarias de Dominio y Aplicación en Go"
         run: |
           go test -v -race ./internal/domain/... ./internal/application/...
 
-      - name: [3/5] Instalar Dependencias Frontend SPA
+      - name: "[3/5] Instalar Dependencias Frontend SPA"
         run: |
           npm --prefix frontend ci
 
-      - name: [4/5] Análisis Estático y Pruebas de la SPA (Vitest + Typecheck)
+      - name: "[4/5] Análisis Estático y Pruebas de la SPA (Vitest + Typecheck)"
         run: |
           npm --prefix frontend run typecheck
           npm --prefix frontend run test
 
-      - name: [5/5] Compilar Frontend SPA (Bundle de Producción)
+      - name: "[5/5] Compilar Frontend SPA (Bundle de Producción)"
         run: |
           npm --prefix frontend run build
 
@@ -82,10 +82,10 @@ jobs:
         (github.event_name == 'workflow_dispatch' && (inputs.deploy == true || inputs.deploy == 'true'))
       )
     steps:
-      - name: Clonar repositorio
+      - name: "Clonar repositorio"
         uses: actions/checkout@v4
 
-      - name: Configurar archivo de variables de entorno (.env)
+      - name: "Configurar archivo de variables de entorno (.env)"
         run: |
           if [ ! -f .env ]; then
             echo "[*] Creando .env inicial a partir de .env.example..."
@@ -95,7 +95,7 @@ jobs:
           fi
           mkdir -p uploads storage
 
-      - name: Desplegar / Actualizar Contenedores (Docker Compose)
+      - name: "Desplegar / Actualizar Contenedores (Docker Compose)"
         run: |
           echo "[*] Deteniendo instancias anteriores (si existen)..."
           docker compose -f docker-compose.prod.yml down --remove-orphans || true
@@ -103,7 +103,7 @@ jobs:
           echo "[*] Construyendo y levantando stack productivo..."
           docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
 
-      - name: Verificar Salud del Despliegue
+      - name: "Verificar Salud del Despliegue"
         run: |
           echo "[*] Esperando a que los contenedores reporten estado saludable (healthcheck)..."
           sleep 10
@@ -129,7 +129,7 @@ jobs:
             sleep 3
           done
 
-      - name: Resumen de Despliegue
+      - name: "Resumen de Despliegue"
         run: |
           echo "=========================================================="
           echo "  SRP-BIESS: DESPLIEGUE EXITOSO EN RUNNER SELF-HOSTED"
