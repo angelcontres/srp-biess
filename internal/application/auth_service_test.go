@@ -1,6 +1,8 @@
 package application_test
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -8,6 +10,36 @@ import (
 	"srp-biess/internal/application"
 	"srp-biess/internal/domain"
 )
+
+type authAttemptStoreStub struct {
+	failures map[domain.AuthFlow]int
+	resets   map[domain.AuthFlow]int
+}
+
+func newAuthAttemptStoreStub() *authAttemptStoreStub {
+	return &authAttemptStoreStub{
+		failures: make(map[domain.AuthFlow]int),
+		resets:   make(map[domain.AuthFlow]int),
+	}
+}
+
+func (s *authAttemptStoreStub) CheckBlocked(context.Context, domain.AuthFlow, string) (time.Duration, error) {
+	return 0, nil
+}
+
+func (s *authAttemptStoreStub) RecordFailure(_ context.Context, flow domain.AuthFlow, _ string) (bool, time.Duration, error) {
+	s.failures[flow]++
+	if s.failures[flow] >= 3 {
+		return true, 10 * time.Minute, nil
+	}
+	return false, 0, nil
+}
+
+func (s *authAttemptStoreStub) Reset(_ context.Context, flow domain.AuthFlow, _ string) error {
+	s.resets[flow]++
+	s.failures[flow] = 0
+	return nil
+}
 
 func TestAuthService_ValidarIdentidad_StrategyPattern(t *testing.T) {
 	t.Run("Validación con estrategia por defecto (Cédula Ecuador)", func(t *testing.T) {
@@ -39,6 +71,31 @@ func TestAuthService_ValidarIdentidad_StrategyPattern(t *testing.T) {
 			t.Errorf("esperaba éxito al usar estrategia de pasaporte, error: %v", err)
 		}
 	})
+}
+
+func TestAuthService_AuthAttemptBlocking(t *testing.T) {
+	ctx := context.Background()
+	store := newAuthAttemptStoreStub()
+	svc := application.NewAuthService(nil, nil).WithAuthAttemptStore(store)
+
+	for attempt := 1; attempt <= 2; attempt++ {
+		_, err := svc.Login(ctx, "0926687856", "contraseña-incorrecta")
+		if !errors.Is(err, domain.ErrInvalidCredentials) {
+			t.Fatalf("intento %d: error = %v; want invalid credentials", attempt, err)
+		}
+	}
+
+	_, err := svc.Login(ctx, "0926687856", "contraseña-incorrecta")
+	var blockedErr *domain.AuthBlockedError
+	if !errors.As(err, &blockedErr) {
+		t.Fatalf("tercer intento: error = %v; want AuthBlockedError", err)
+	}
+	if blockedErr.RetryAfter != 10*time.Minute {
+		t.Fatalf("retry after = %v; want 10m", blockedErr.RetryAfter)
+	}
+	if store.resets[domain.AuthFlowLogin] != 0 {
+		t.Fatalf("los intentos fallidos no deben reiniciar el contador")
+	}
 }
 
 func TestAuthService_JWT_And_Tokens(t *testing.T) {

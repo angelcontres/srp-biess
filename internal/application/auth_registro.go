@@ -45,6 +45,9 @@ func (s *AuthService) ValidarIdentidadRegistro(ctx context.Context, cedula strin
 	if err := s.ValidarIdentidad(cedula); err != nil {
 		return nil, domain.ErrInvalidCedula
 	}
+	if err := s.checkAuthBlocked(ctx, domain.AuthFlowRegistration, cedula); err != nil {
+		return nil, err
+	}
 	if s.identity == nil {
 		return nil, domain.ErrExternalUnavailable
 	}
@@ -57,7 +60,13 @@ func (s *AuthService) ValidarIdentidadRegistro(ctx context.Context, cedula strin
 		return nil, domain.ErrExternalUnavailable
 	}
 	if res == nil || !res.Match {
+		if recordErr := s.recordAuthFailure(ctx, domain.AuthFlowRegistration, cedula); recordErr != nil {
+			return nil, recordErr
+		}
 		return nil, domain.ErrIdentityMismatch
+	}
+	if err := s.resetAuthFailures(ctx, domain.AuthFlowRegistration, cedula); err != nil {
+		return nil, err
 	}
 
 	token, err := s.generarTokenValidacion(cedula)

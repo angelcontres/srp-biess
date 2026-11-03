@@ -76,15 +76,13 @@ func main() {
 		_ = documentoRepo
 	}
 
-	// Almacén de sesiones y refresh tokens en Redis (ADR-006)
+	// Almacén de sesiones, bloqueo y refresh tokens en Redis DB 1 (ADR-005, ADR-006)
 	sessionStore := cache.NewRedisSessionStore(rdb)
+	authAttemptStore := cache.NewRedisAuthAttemptStore(rdb)
 
 	// =========================================================================
 	// FASE 3: Adaptadores de Infraestructura Externa / Mocks (ADR-010)
 	// =========================================================================
-	// TODO(backend: SRP-006): el registro aún no bloquea tras 3 intentos fallidos. Falta responder 423
-	// con `Retry-After: 600` y el mensaje "registro fallido, inténtelo nuevamente en 10 minutos";
-	// el frontend (SRP-012) ya lo maneja. Si la SPA se sirve en otro origen, CORS debe exponer Retry-After.
 	registroCivilMock := external.NewMockIdentityProvider() // implements domain.IdentityProvider
 	iessMock := external.NewMockEmploymentProvider()        // implements domain.EmploymentHistoryProvider
 
@@ -97,6 +95,7 @@ func main() {
 	// FASE 5: Casos de Uso / Capa de Aplicación (Inyección Manual - ADR-003)
 	// =========================================================================
 	authService := application.NewAuthService(postulanteRepo, cedulaStrategy, sessionStore).
+		WithAuthAttemptStore(authAttemptStore).
 		WithIdentityProvider(registroCivilMock)
 	eligibilityService := application.NewEligibilityService(iessMock)
 	formularioService := application.NewFormularioService(formularioRepo) // SRP-013, integración mínima
