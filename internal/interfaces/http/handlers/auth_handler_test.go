@@ -211,5 +211,56 @@ func TestAuthHandler_Lifecycle(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("status = %d; want 200", resp.StatusCode)
 		}
+		if got := resp.Header.Get("Deprecation"); got != "true" {
+			t.Errorf("Deprecation = %q; want true", got)
+		}
+	})
+
+	t.Run("9. Contrato SDD de validación algorítmica", func(t *testing.T) {
+		body := strings.NewReader(`{"cedula":"1710034065"}`)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/validaciones/cedula", body)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d; want 200", resp.StatusCode)
+		}
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			t.Fatalf("respuesta inválida: %v", err)
+		}
+		data, ok := result["data"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("data ausente o inválida: %v", result)
+		}
+		if result["success"] != true || data["valida"] != true ||
+			data["provincia"] != "PICHINCHA" || data["codigoProvincia"] != "17" ||
+			data["tipo"] != "PERSONA_NATURAL" || data["algoritmo"] != "MODULO_10" {
+			t.Fatalf("contrato inesperado: %v", result)
+		}
+	})
+
+	t.Run("10. Cédula inválida devuelve código SDD", func(t *testing.T) {
+		body := strings.NewReader(`{"cedula":"1710034060"}`)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/validaciones/cedula", body)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if resp.StatusCode != http.StatusUnprocessableEntity {
+			t.Fatalf("status = %d; want 422", resp.StatusCode)
+		}
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			t.Fatalf("respuesta inválida: %v", err)
+		}
+		if result["success"] != false || !strings.Contains(result["error"].(string), "VAL_CEDULA_INVALIDA") {
+			t.Fatalf("error inesperado: %v", result)
+		}
 	})
 }
