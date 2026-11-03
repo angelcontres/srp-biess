@@ -50,6 +50,7 @@ func TestAuthHandler_Lifecycle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error: %v", err)
 		}
+
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Errorf("status = %d; want %d", resp.StatusCode, http.StatusUnauthorized)
 		}
@@ -261,6 +262,60 @@ func TestAuthHandler_Lifecycle(t *testing.T) {
 		}
 		if result["success"] != false || !strings.Contains(result["error"].(string), "VAL_CEDULA_INVALIDA") {
 			t.Fatalf("error inesperado: %v", result)
+		}
+	})
+}
+
+func TestAuthRoutes_JWTOnlyOnProtectedRoutes(t *testing.T) {
+	app, authService := setupTestApp()
+
+	t.Run("ruta inexistente responde 404", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/no-existe", nil)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("status = %d; want %d", resp.StatusCode, http.StatusNotFound)
+		}
+	})
+
+	protectedRoutes := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{name: "me", method: http.MethodGet, path: "/api/v1/auth/me"},
+		{name: "logout", method: http.MethodPost, path: "/api/v1/auth/logout"},
+	}
+
+	for _, route := range protectedRoutes {
+		t.Run(route.name+" sin token responde 401", func(t *testing.T) {
+			req := httptest.NewRequest(route.method, route.path, nil)
+			resp, err := app.Test(req)
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+			if resp.StatusCode != http.StatusUnauthorized {
+				t.Fatalf("status = %d; want %d", resp.StatusCode, http.StatusUnauthorized)
+			}
+		})
+	}
+
+	t.Run("logout con token responde 200", func(t *testing.T) {
+		token, err := authService.GenerarAccessToken("usr-123456", "0926687856", "postulante@biess.gob.ec")
+		if err != nil {
+			t.Fatalf("error generando token: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d; want %d", resp.StatusCode, http.StatusOK)
 		}
 	})
 }
