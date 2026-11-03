@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
@@ -33,7 +34,7 @@ const sizeClasses: Record<ButtonSize, string> = {
 const focusClasses =
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-dark';
 
-export default function Button({
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({
   variant = 'primary',
   size = 'md',
   isLoading = false,
@@ -47,11 +48,12 @@ export default function Button({
   type = 'button',
   onClick,
   ...rest
-}: ButtonProps) {
-  const paddingClasses = variant === 'tertiary' ? 'h-auto px-0' : sizeClasses[size];
+}, ref) {
+  const paddingClasses = variant === 'tertiary' ? 'min-h-11 px-0' : sizeClasses[size];
 
   return (
     <button
+      ref={ref}
       type={type}
       disabled={disabled}
       aria-disabled={isLoading || undefined}
@@ -99,4 +101,6 @@ export default function Button({
       )}
     </button>
   );
-}
+});
+
+export default Button;

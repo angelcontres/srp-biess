@@ -6,6 +6,7 @@ import TextField from '@/components/ui/TextField';
 import LockoutNotice from '@/features/auth/components/LockoutNotice';
 import { useCountdown } from '@/features/auth/hooks/useCountdown';
 import { api, DEFAULT_LOCKOUT_SECONDS, normalizeError } from '@/services/api/client';
+import { RequiredMark, RequiredNote } from '@/components/ui/FieldMessages';
 
 export type ValidationType = 'FECHA_EXPEDICION' | 'CODIGO_DACTILAR';
 
@@ -138,6 +139,7 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
         ) : null}
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-6" noValidate>
+          <RequiredNote />
           <TextField
             label="Cédula de identidad"
             value={cedula}
@@ -153,7 +155,7 @@ export default function RegisterPage({ onNavigateToLogin }: RegisterPageProps) {
 
           <fieldset className="space-y-3">
             <legend className="text-base font-medium text-neutral-900">
-              Método de validación <span className="font-normal text-muted">(obligatorio)</span>
+              Método de validación<RequiredMark />
             </legend>
             <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
               <label className="flex min-h-11 cursor-pointer items-center gap-2 text-base text-neutral-900">
