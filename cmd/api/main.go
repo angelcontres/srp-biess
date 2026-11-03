@@ -19,6 +19,7 @@ import (
 	"srp-biess/internal/infrastructure/cache"
 	"srp-biess/internal/infrastructure/database"
 	"srp-biess/internal/infrastructure/external"
+	"srp-biess/internal/infrastructure/pdf"
 	"srp-biess/internal/infrastructure/security"
 	"srp-biess/internal/infrastructure/storage"
 	interfacesHTTP "srp-biess/internal/interfaces/http"
@@ -122,6 +123,12 @@ func main() {
 		}
 		documentoService = application.NewDocumentoService(txManager, cargaDocumentoRepo, almacen,
 			security.NewFirmadorHMAC(secretoDescarga()), auditoriaRepo, limitesDocumento, vigenciaDescarga())
+		// SRP-017c: el envío genera y guarda el formulario PDF real y notifica al correo registrado.
+		if lector, ok := formularioRepo.(application.LectorFormulario); ok && postulacionService != nil {
+			postulacionService.WithFormularioPDF(postulanteRepo, lector, pdf.NewGeneradorGopdf(), almacen).
+				WithCatalogo(catalogoRepo).
+				WithAuditoria(auditoriaRepo)
+		}
 	}
 	// Sin PostgreSQL el handler recibe nil y responde 503 (no se invoca un repositorio nulo).
 	var catalogoService *application.CatalogoService
