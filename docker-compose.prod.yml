@@ -1,6 +1,6 @@
 services:
   # -------------------------------------------------------------------
-  # Persistencia Relacional: PostgreSQL 16
+  # Persistencia Relacional: PostgreSQL 16 (Red Interna)
   # -------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
@@ -11,8 +11,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-srp_secret_password}
       POSTGRES_DB: ${DB_NAME:-srp_biess}
       PGDATA: /var/lib/postgresql/data/pgdata
-    ports:
-      - "${DB_PORT:-5432}:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro,z
@@ -25,15 +25,15 @@ services:
       - srp-network
 
   # -------------------------------------------------------------------
-  # Caché, Expiración y Rate Limiting: Redis 7
+  # Caché, Expiración y Rate Limiting: Redis 7 (Red Interna)
   # -------------------------------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: srp-biess-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -51,8 +51,9 @@ services:
     image: axllent/mailpit:latest
     container_name: srp-biess-mailpit
     restart: unless-stopped
+    expose:
+      - "1025"
     ports:
-      - "${SMTP_PORT:-1025}:1025"
       - "${MAILPIT_PORT:-8025}:8025"
     environment:
       MP_MAX_MESSAGES: 500
