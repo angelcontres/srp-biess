@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, InternalAxiosRequestConfig } from 'axios';
-import { getAccessToken, clearSession, setAccessToken } from '@/store/authStore';
+import { getAccessToken, clearSession, expireSession, setAccessToken } from '@/store/authStore';
 
 let refreshPromise: Promise<string | null> | null = null;
 
@@ -120,7 +120,10 @@ export function refreshAccessToken(): Promise<string | null> {
       return token;
     })
     .catch(() => {
-      clearSession(); // la cookie expiró o se revocó
+      // La cookie expiró o se revocó. Si había sesión abierta, se avisa a la app para
+      // llevar al usuario al inicio de sesión; al restaurar la sesión al cargar, no.
+      if (getAccessToken()) expireSession();
+      else clearSession();
       return null;
     })
     .finally(() => {

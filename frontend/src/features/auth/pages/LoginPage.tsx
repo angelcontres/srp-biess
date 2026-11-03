@@ -24,9 +24,11 @@ export interface LoginPageProps {
   onNavigateToRegister?: () => void;
   /** Callback invoked upon successful authentication. */
   onLoginSuccess?: (userData: LoginResponse) => void;
+  /** Notice shown above the form, e.g. after the session expired (SRP-015). */
+  aviso?: string;
 }
 
-export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: LoginPageProps) {
+export default function LoginPage({ onNavigateToRegister, onLoginSuccess, aviso }: LoginPageProps) {
   const [cedula, setCedula] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -92,6 +94,10 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
         <p className="mt-2 text-base text-neutral-700">
           Ingrese su cédula de identidad y su contraseña para acceder al sistema de postulación.
         </p>
+
+        {aviso ? (
+          <Alert variant="info" title={aviso} className="mt-6" />
+        ) : null}
 
         {isLocked ? (
           <LockoutNotice
