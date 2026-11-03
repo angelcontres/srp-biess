@@ -65,7 +65,9 @@ func main() {
 
 	if pool != nil {
 		postulanteRepo = database.NewPostgresPostulanteRepository(pool)
-		catalogoRepo = database.NewPostgresCatalogoRepository(pool)
+		// SRP-007: cache-aside en Redis (TTL 24 h); si Redis falla, el decorador consulta PostgreSQL.
+		catalogoRepo = cache.NewCachedCatalogoRepository(
+			database.NewPostgresCatalogoRepository(pool), rdb, cacheEnv(), cache.DefaultCatalogTTL)
 		postulacionRepo = database.NewPostgresPostulacionRepository(pool)
 		documentoRepo = database.NewPostgresDocumentoRepository(pool)
 		notificacionRepo = database.NewPostgresNotificacionRepository(pool)
@@ -181,4 +183,14 @@ func main() {
 
 	<-serverShutdown
 	log.Println("[INFO] Apagado limpio completado. Hasta pronto.")
+}
+
+// cacheEnv devuelve el segmento {env} de las claves de Redis (srp:{env}:...), por defecto "dev".
+func cacheEnv() string {
+	switch env := os.Getenv("APP_ENV"); env {
+	case "", "development":
+		return "dev"
+	default:
+		return env
+	}
 }

@@ -327,7 +327,7 @@
 
   * Handler `internal/interfaces/http/handlers/catalogo_handler.go`, rutas en `router.go` e inyección en `cmd/api/main.go`. Sin PostgreSQL responden 503; con un identificador no numérico, 400.
   * Prueba de integración contra el seed: `go test ./internal/interfaces/http/handlers -run Catalogo -v`.
-  * **Pendiente para SRP-007:** caché cache-aside en Redis (TTL 24 h) con fallback a PostgreSQL.
+  * **Caché (SRP-007, PR #32):** `cmd/api/main.go` envuelve el repositorio con `cache.NewCachedCatalogoRepository` (cache-aside, TTL 24 h ± 5 min, claves `srp:{env}:cat:{recurso}:v{n}`). Si Redis no responde, los catálogos se leen de PostgreSQL. Tras actualizar la semilla (SRP-019) se debe invalidar la caché incrementando `srp:dev:cat:version`.
   * `GET /catalogos/paises` incluye `codigo` (ISO 3166-1 alfa-2): la SPA reconoce a Ecuador por `EC` y no por su id (en la semilla actual, `id = 52`).
   * **Semilla (`db/init.sql`):** 194 países, las 24 provincias del Ecuador con códigos INEC y 199 cantones asignados a su provincia. Los códigos oficiales de cantón y los cantones faltantes quedan en SRP-019.
 
