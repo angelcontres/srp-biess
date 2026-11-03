@@ -1,0 +1,143 @@
+services:
+  # -------------------------------------------------------------------
+  # Persistencia Relacional: PostgreSQL 16
+  # -------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: srp-biess-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-srp_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-srp_secret_password}
+      POSTGRES_DB: ${DB_NAME:-srp_biess}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro,z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-srp_user} -d ${DB_NAME:-srp_biess}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - srp-network
+
+  # -------------------------------------------------------------------
+  # Caché, Expiración y Rate Limiting: Redis 7
+  # -------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: srp-biess-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - srp-network
+
+  # -------------------------------------------------------------------
+  # Servidor de Correo Local y Bandeja Web: Mailpit
+  # -------------------------------------------------------------------
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: srp-biess-mailpit
+    restart: unless-stopped
+    ports:
+      - "${SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_DATABASE: ""
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8025/api/v1/info || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - srp-network
+
+  # -------------------------------------------------------------------
+  # Backend API: Go Fiber
+  # -------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: srp-biess-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SMTP_HOST=mailpit
+      - SMTP_PORT=1025
+      - APP_PORT=8080
+      - STORAGE_LOCAL_PATH=/app/uploads
+      - STORAGE_PATH=/app/storage
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - uploads_data:/app/uploads
+      - storage_data:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - srp-network
+
+  # -------------------------------------------------------------------
+  # Frontend Web SPA: Nginx Reverse Proxy & Static Files
+  # -------------------------------------------------------------------
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: srp-biess-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - srp-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+  storage_data:
+    driver: local
+
+networks:
+  srp-network:
+    driver: bridge

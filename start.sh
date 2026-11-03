@@ -74,7 +74,7 @@ while true; do
             check_docker || continue
             check_env
             echo -e "\n${YELLOW}[*] Levantando contenedores en modo producción...${NC}"
-            docker compose up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
             echo -e "\n${GREEN}[OK] Entorno iniciado en modo producción.${NC}"
             echo -e "Recuerda configurar tus credenciales reales en el archivo .env\n"
             read -rp "Presiona [Enter] para continuar..."
@@ -141,3 +141,4 @@ while true; do
             ;;
     esac
 done
+
