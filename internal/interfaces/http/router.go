@@ -15,6 +15,7 @@ type RouterConfig struct {
 	EligibilityHandler *handlers.EligibilityHandler
 	PostulacionHandler *handlers.PostulacionHandler
 	CargoHandler       *handlers.CargoHandler
+	DocumentoHandler   *handlers.DocumentoHandler
 	CatalogoHandler    *handlers.CatalogoHandler
 	AuthService        *application.AuthService
 }
@@ -97,6 +98,14 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 		// Confirmación del cargo con elegibilidad IESS (SRP-017a, SDD 7.5.4).
 		if cfg.CargoHandler != nil {
 			postulaciones.Put("/:id/cargo", cfg.CargoHandler.Confirmar)
+		}
+
+		// Documentos: carga, borrado y descarga con URL firmada + JWT (SRP-017b, SDD 7.5.5, 9.7).
+		if d := cfg.DocumentoHandler; d != nil {
+			postulaciones.Post("/:id/documentos", d.Subir)
+			postulaciones.Get("/:id/documentos/:docId", d.Metadatos)
+			postulaciones.Delete("/:id/documentos/:docId", d.Eliminar)
+			postulaciones.Get("/:id/documentos/:docId/download", d.Descargar)
 		}
 	}
 }

@@ -49,8 +49,12 @@ Este archivo define la cuadrícula, los breakpoints, los wireframes para móvil 
 │ ✓ Domicilio   ├───────────────────────────────────────────┤
 │ ● Familiares  │ Instrucciones y campos                    │
 │ ○ Cargo       │                                           │
-│ …             │ Último guardado: hoy, 14:32               │
-│               │ Sección anterior     [Guardar y continuar]│
+│ …             │                                           │
+│───────────────│                                           │
+│ Último        │                                           │
+│ guardado:     │                                           │
+│ hoy, 14:32    │ Sección anterior     [Guardar y continuar]│
+│   ↑ sticky    │                                           │
 ├───────────────┴───────────────────────────────────────────┤
 │ Footer: ayuda | privacidad | soporte | bases del concurso │
 └───────────────────────────────────────────────────────────┘
@@ -62,6 +66,8 @@ Este archivo define la cuadrícula, los breakpoints, los wireframes para móvil 
 
 ## 3. Reglas de Sticky y Scroll
 
-- Solo la barra de sección es sticky; el header se desplaza con la página.
+- Son sticky la barra de sección y, desde 1024 px, la columna de secciones (`lg:sticky lg:top-0 lg:self-start`, con `lg:max-h-screen lg:overflow-y-auto` si no cabe). El header se desplaza con la página.
+- Desde 1024 px, el indicador de guardado va debajo de la lista de secciones, siempre a la vista; por debajo de 1024 px va al pie del formulario. Se dibuja una sola vez para no duplicar la región `role="status"`.
+- Contenido más alto que la ventana dentro de un contenedor con acciones (modal): la cabecera y los botones quedan siempre visibles y solo el cuerpo se desplaza con su barra de scroll. Ver `design/components/modal.md`.
 - `html { scroll-padding-top }` igual a la altura de la barra sticky, para que el foco nunca quede tapado por elementos flotantes (WCAG 2.4.11).
 - Sin scroll horizontal a 320 px.

@@ -15,6 +15,8 @@ const (
 	AccionCargoConfirmado       = "CARGO_CONFIRMADO"
 	AccionPostulacionNoElegible = "POSTULACION_NO_ELEGIBLE"
 	AccionAccesoDenegado        = "ACCESO_DENEGADO"
+	AccionDocumentoCargado      = "DOCUMENTO_CARGADO"
+	AccionDocumentoEliminado    = "DOCUMENTO_ELIMINADO"
 )
 
 // ContextoSolicitud es el origen de la acción: IP, navegador y trace_id (SDD 9.9).

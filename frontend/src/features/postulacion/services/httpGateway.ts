@@ -116,14 +116,39 @@ export const httpGateway: PostulacionGateway = {
         if (event.total) onProgress(Math.round((event.loaded / event.total) * 100));
       },
     });
-    const doc = unwrap<{ id: string; nombreOriginal: string; tamanoBytes: number; urlDescarga: string }>(data);
+    const doc = unwrap<{
+      id: string;
+      nombreOriginal: string;
+      tamanoBytes: number;
+      fechaCarga: string;
+      urlDescarga: string;
+    }>(data);
     return {
       id: doc.id,
       name: doc.nombreOriginal,
       sizeBytes: doc.tamanoBytes,
-      uploadedAt: new Date().toISOString(),
+      // SDD 7.5.5: the load date comes from the server (`created_at`), never from the device clock.
+      uploadedAt: doc.fechaCarga,
       url: doc.urlDescarga,
     };
+  },
+
+  async eliminarDocumento(id, docId) {
+    await api.delete(`/postulaciones/${id}/documentos/${docId}`);
+  },
+
+  async descargarDocumento(id, docId) {
+    // The signed URL expires in 5 minutes, so ask for a fresh one before downloading.
+    const metadatos = unwrap<{ urlDescarga: string }>(
+      (await api.get(`/postulaciones/${id}/documentos/${docId}`)).data,
+    );
+    const firma = new URL(metadatos.urlDescarga, window.location.origin).searchParams;
+    const { data } = await api.get(`/postulaciones/${id}/documentos/${docId}/download`, {
+      // The JWT travels in Authorization, so the PDF is fetched as a Blob instead of an <a href>.
+      responseType: 'blob',
+      params: { exp: firma.get('exp'), sig: firma.get('sig') },
+    });
+    return data as Blob;
   },
 
   async enviar(id, version) {

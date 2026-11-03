@@ -1,4 +1,5 @@
 import type { FormEvent, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { RotateCw } from 'lucide-react';
 import Alert from '@/components/ui/Alert';
@@ -9,6 +10,7 @@ import { formatDateTime } from '@/utils/format';
 import { SECCIONES } from '../constants';
 import type { SeccionId } from '../constants';
 import type { EstadoGuardado, ErrorServidor } from '../hooks/useSeccionForm';
+import { ESCRITORIO, useMediaQuery } from '../hooks/useMediaQuery';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { usePostulacion } from '../PostulacionContext';
 import type { ErrorResumen } from '../schemas/resolver';
@@ -66,7 +68,10 @@ export default function SeccionLayout({
   etiquetaPrimaria = 'Guardar y continuar',
   soloLectura: soloLecturaSeccion = false,
 }: SeccionLayoutProps) {
-  const { irA, postulacion } = usePostulacion();
+  const { irA, postulacion, slotGuardado } = usePostulacion();
+  // >= 1024 px the save status lives under the section list, always in view; below, at the footer.
+  // Rendered once so screen readers do not hear two status regions.
+  const guardadoLateral = useMediaQuery(ESCRITORIO) && slotGuardado !== null;
   // The server only accepts changes in BORRADOR (409 POS_CERRADA otherwise): NO_ELEGIBLE,
   // ENVIADA, etc. are shown read-only instead of failing on save (SDD 10.11).
   const cerrada = postulacion.estado !== 'BORRADOR';
@@ -83,6 +88,9 @@ export default function SeccionLayout({
 
   return (
     <>
+      {guardadoLateral && slotGuardado && !soloLectura && !cargando && !errorCarga
+        ? createPortal(<SaveStatus estado={estado} isDirty={isDirty} ultimoGuardado={ultimoGuardado} />, slotGuardado)
+        : null}
       <SectionBar
         seccion={seccion}
         onGuardarProgreso={soloLectura || cargando || errorCarga ? undefined : () => void guardarProgreso()}
@@ -163,7 +171,7 @@ export default function SeccionLayout({
 
             {soloLectura ? null : (
               <div className="space-y-4 border-t border-line pt-6">
-                <SaveStatus estado={estado} isDirty={isDirty} ultimoGuardado={ultimoGuardado} />
+                {guardadoLateral ? null : <SaveStatus estado={estado} isDirty={isDirty} ultimoGuardado={ultimoGuardado} />}
                 <div className="flex flex-col gap-3 sm:flex-row-reverse sm:items-center sm:justify-between">
                   <Button type="submit" isLoading={guardando} loadingText="Guardando…" className="w-full sm:w-auto">
                     {etiquetaPrimaria}

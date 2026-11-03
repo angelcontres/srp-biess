@@ -132,17 +132,18 @@
 * **Asignado:** Angel Alejandro Villon Panimboza
 * **Issue:** [#38](https://github.com/angelcontres/srp-biess/issues/38)
 * **Rama:** `feature/postulacion-api`
+* **Estado:** **En curso (03/11/2026): 3 de 5 partes cerradas.** Terminadas SRP-017a (cargo y elegibilidad, PR #51 y #52), SRP-017b (documentos, PR #60 y #61) y SRP-017e (normalización, PR #49). Pendientes SRP-017c (#43, envío) y SRP-017d (#41, validación en el servidor).
 * **Origen:** detectado al cerrar SRP-013. Ningún ticket asignaba estos endpoints de SDD 7.3.4, y el formulario los necesita para funcionar de extremo a extremo con datos reales. La base ya existe: los endpoints de borrador y guardado por sección (ver SRP-013) y los catálogos (ver SRP-014).
 * **Dependencias:** SRP-005 (`TxManager`) para el envío; SRP-009 (mock de Historial Laboral IESS) para la elegibilidad.
 * **Descripción:** Exponer, protegidos con JWT y respetando las capas de ADR-003, los cinco bloques del ticket. Se dividió en sub-issues (issue paraguas [#38](https://github.com/angelcontres/srp-biess/issues/38)); el alcance y los criterios de cada uno viven ahí:
 
-  | Parte | Alcance | Depende de |
-  |---|---|---|
-  | [#39](https://github.com/angelcontres/srp-biess/issues/39) SRP-017a | `PUT /{id}/cargo` con elegibilidad y contrato `{ postulacion, elegibilidad }` para la SPA | — |
-  | [#40](https://github.com/angelcontres/srp-biess/issues/40) SRP-017b | Documentos: PDF real, cuotas, UUID, SHA-256 y URL firmada | — |
-  | [#43](https://github.com/angelcontres/srp-biess/issues/43) SRP-017c | Envío atómico e idempotente con `TxManager` | #39, #42 |
-  | [#41](https://github.com/angelcontres/srp-biess/issues/41) SRP-017d | Validación de secciones en el servidor antes de `COMPLETA` | — |
-  | [#42](https://github.com/angelcontres/srp-biess/issues/42) SRP-017e | Normalización de `postulacion_seccion` a las tablas de SDD 4.6 | #41 |
+  | Parte | Alcance | Depende de | Estado |
+  |---|---|---|---|
+  | [#39](https://github.com/angelcontres/srp-biess/issues/39) SRP-017a | `PUT /{id}/cargo` con elegibilidad y contrato `{ postulacion, elegibilidad }` para la SPA | — | **Cerrada** (PR #51, #52) |
+  | [#40](https://github.com/angelcontres/srp-biess/issues/40) SRP-017b | Documentos: PDF real, cuotas, UUID, SHA-256 y URL firmada | — | **Cerrada** (PR #60, #61) |
+  | [#43](https://github.com/angelcontres/srp-biess/issues/43) SRP-017c | Envío atómico e idempotente con `TxManager` | #39, #42 | Pendiente |
+  | [#41](https://github.com/angelcontres/srp-biess/issues/41) SRP-017d | Validación de secciones en el servidor antes de `COMPLETA` | — | Pendiente |
+  | [#42](https://github.com/angelcontres/srp-biess/issues/42) SRP-017e | Normalización de `postulacion_seccion` a las tablas de SDD 4.6 | #41 | **Cerrada** (PR #49) |
 
   Orden sugerido: #39 → #40 y #41 en paralelo → #42 → #43. Cada parte va en su propia rama para que el PR quede por debajo de 400 líneas.
 * **Criterios de Aceptación (del paraguas):**
@@ -155,7 +156,7 @@
   * **#41 Validación:** las reglas se definen por sección en una fuente única de la que derivan Go y la SPA. Pendiente: el formato de esa fuente.
   * **#42 Normalización:** al enviar; el JSONB es la fuente durante el borrador y el volcado corre dentro de la transacción de #43.
   * **#43 Envío:** tabla nueva para la `Idempotency-Key`, sin confiar en el estado. Pendiente: resolver el envío concurrente con la misma llave (`FOR UPDATE`, `UNIQUE` o ambos).
-* **Implementación de #39 (integración autorizada por el responsable del frontend):**
+* **Implementación de #39 (integración autorizada por el responsable del frontend). Cerrada el 03/11/2026 con los PR #51 (backend) y #52 (SPA: solo lectura y "Mi postulación"):**
   * `PUT /postulaciones/{id}/cargo` → `CargoHandler` → `CargoService` → `domain.CargoRepository` (implementado por `PostgresFormularioRepository`, `cargo_repository.go`). Sigue SDD 7.5.4 y 10.7:
     * **Elegible:** 200 con los campos del SDD (`elegible`, `mensaje`, `requiereRespaldo`, `version`) más `{ postulacion, elegibilidad }`, que consume la SPA.
     * **No elegible:** 422 `POS_NO_ELEGIBLE_AFI|JUB|EMP` con `detail` (mensaje institucional) y `estado: NO_ELEGIBLE`, más el mismo `data`. La postulación queda `NO_ELEGIBLE`. `httpGateway.confirmarCargo` convierte ese 422 en el resultado no elegible; cualquier otro error sigue mostrando el aviso de reintento.
@@ -165,6 +166,16 @@
   * Postulación inexistente: 404 `POS_NO_ENCONTRADA`. Postulación de otro postulante: 403 `POS_ACCESO_DENEGADO` (código nuevo, no está en el catálogo de SDD 16.6).
   * **Auditoría (SDD 9.9, 10.7):** `auditoria_evento` con actor, IP, user agent, `trace_id` (`X-Request-ID`) y datos antes/después sin cédula. El `UPDATE` y el evento `CARGO_CONFIRMADO` o `POSTULACION_NO_ELEGIBLE` van en la misma transacción del `TxManager`: si falla la auditoría, no se guarda el cargo. El 403 se audita como `ACCESO_DENEGADO` fuera de la transacción.
   * Mensaje elegible: "Postulante afiliado al IESS" (SDD 7.5.4), "Postulante jubilado" y "Postulante empleador" (SRS 3.5.11).
+* **Implementación de #40 (integración autorizada por el responsable del frontend). Cerrada el 03/11/2026 con los PR #60 (backend) y #61 (SPA):**
+  * Rutas (SDD 7.5.5, protegidas con JWT): `POST /postulaciones/{id}/documentos` (201 `{ id, tipo, nombreOriginal, tamanoBytes, hashSha256, fechaCarga, urlDescarga }`), `GET /postulaciones/{id}/documentos/{docId}` (metadatos y una URL firmada nueva, porque la anterior vence a los 5 min), `DELETE /postulaciones/{id}/documentos/{docId}` (204) y `GET /postulaciones/{id}/documentos/{docId}/download?exp&sig` (ruta del SDD; el issue proponía `/documentos/{docId}/descarga`).
+  * Capas: `DocumentoHandler` → `DocumentoService` → `domain.CargaDocumentoRepository` (`PostgresDocumentoRepository`), `domain.AlmacenDocumentos` (`storage.AlmacenLocal`, `STORAGE_PATH`, permisos 0700, solo nombres `<uuid>.pdf`) y `domain.FirmadorDescarga` (`security.FirmadorHMAC`).
+  * Validación: extensión `.pdf` y firma `%PDF-` (415 `DOC_TIPO_INVALIDO`); tope por tipo con `io.LimitReader` en una sola pasada con el SHA-256 (413 `DOC_TAMANO_EXCEDIDO`); acumulado con `SELECT … FOR UPDATE` (413 `DOC_TOTAL_EXCEDIDO`). Límites configurables con `MAX_ORGANIZATIONAL_SUPPORT_MB`, `MAX_DOCUMENT_MB` y `MAX_TOTAL_UPLOAD_MB` (SDD 16.4.4); el respaldo nunca pasa de 4 MB por el `CHECK`.
+  * Corte defensivo: Fiber (fasthttp) no expone `http.MaxBytesReader`; el equivalente es `BodyLimit` = tope del respaldo + 1 MB. Ese 413 llega sin el sobre JSON y la SPA lo traduce a un mensaje de tamaño.
+  * Orden de escritura: temporal → `BEGIN` → bloqueo y cuota → rename → `INSERT` → auditoría → `COMMIT`; si algo falla se borra el temporal o el definitivo. Borrado: `DELETE` → auditoría → `COMMIT` → borrar archivo (si falla, solo log).
+  * Auditoría `DOCUMENTO_CARGADO` y `DOCUMENTO_ELIMINADO` en la misma transacción; `ACCESO_DENEGADO` para la postulación ajena (403). Documento inexistente o ajeno: 404 `DOC_NO_ENCONTRADO`. Firma vencida o alterada: 403 `DOC_ENLACE_INVALIDO` (código nuevo).
+  * `DOCUMENTOS_URL_SECRETO` es obligatorio con `APP_ENV=production`; en desarrollo, sin él, se genera uno aleatorio y las URL firmadas dejan de valer al reiniciar.
+  * SPA: la descarga pide una URL nueva y trae el PDF como `Blob` con el JWT; "Eliminar" borra en el servidor (un 404 limpia la referencia); "Reemplazar" borra el anterior tras subir el nuevo; los rechazos 4xx muestran el mensaje del servidor y solo la falta de conexión o un 5xx ofrecen reintentar.
+  * Límite conocido: un documento cargado o eliminado en una sección que no se guarda deja la referencia del JSONB desincronizada (archivo sin referencia o referencia a un documento borrado). Se resuelve al normalizar en el envío (#42, #43).
 * **Nota de revisión:** el mapeo de secciones no es 1:1: `PUT /{id}/respaldo-organizacional` guarda la sección `cargo`, que contiene los datos de respaldo organizacional.
 
 ---

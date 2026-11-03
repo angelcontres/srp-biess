@@ -46,6 +46,18 @@ func responderError(c *fiber.Ctx, err error) error {
 		return fallo(c, fiber.StatusConflict, "POS_CERRADA", "La postulación ya no admite cambios.")
 	case errors.Is(err, domain.ErrSeccionInvalida):
 		return fallo(c, fiber.StatusUnprocessableEntity, "VALIDATION_ERROR", "Los datos de la sección no son válidos.")
+	case errors.Is(err, domain.ErrDocumentoTipoNoCargable):
+		return fallo(c, fiber.StatusBadRequest, "VALIDATION_ERROR", "Este tipo de documento no se puede cargar.")
+	case errors.Is(err, domain.ErrDocumentoNoPDF):
+		return fallo(c, fiber.StatusUnsupportedMediaType, "DOC_TIPO_INVALIDO", "El archivo no es un PDF válido. Seleccione un archivo en formato PDF.")
+	case errors.Is(err, domain.ErrDocumentoExcedeTamano):
+		return fallo(c, fiber.StatusRequestEntityTooLarge, "DOC_TAMANO_EXCEDIDO", "El archivo supera el tamaño máximo permitido para este documento.")
+	case errors.Is(err, domain.ErrDocumentoCuotaExcedida):
+		return fallo(c, fiber.StatusRequestEntityTooLarge, "DOC_TOTAL_EXCEDIDO", "Sus documentos superan el tamaño total permitido para la postulación. Elimine o reemplace algún documento.")
+	case errors.Is(err, domain.ErrDocumentoNoEncontrado):
+		return fallo(c, fiber.StatusNotFound, "DOC_NO_ENCONTRADO", "El documento no existe.")
+	case errors.Is(err, domain.ErrFirmaDescargaInvalida):
+		return fallo(c, fiber.StatusForbidden, "DOC_ENLACE_INVALIDO", "El enlace de descarga venció o no es válido. Vuelva a abrir el documento.")
 	case errors.Is(err, domain.ErrAccesoDenegado):
 		return fallo(c, fiber.StatusForbidden, "POS_ACCESO_DENEGADO", "No tiene permiso para modificar esta postulación.")
 	case errors.Is(err, domain.ErrCargoInvalido):

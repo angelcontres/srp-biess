@@ -8,17 +8,27 @@ description: >-
 
 Procedimiento para certificar código antes de la entrega o commit.
 
-## 1. Verificación Rápida de Backend
-Ejecuta el arnés local:
+## 1. Verificación Rápida
+Ejecuta el arnés local en Windows:
 ```cmd
 verify.bat
 ```
-O en Linux/Git Bash:
+O con suite completa de pruebas:
+```cmd
+verify.bat --full
+```
+O en Linux / macOS / Git Bash:
 ```bash
 ./verify.sh
 ```
+O con suite completa de pruebas:
+```bash
+./verify.sh --full
+```
 
-## 2. Puntos de Verificación
-1. **Compilación Go:** `go build ./cmd/api` debe terminar con exit code 0.
-2. **Cero Violaciones de Dominio:** Ningún archivo en `internal/domain` debe contener referencias a SQL o HTTP.
-3. **Servicios Docker:** `docker compose ps` debe mostrar `postgres_biess` y `redis_biess` en estado saludable (healthy/up).
+## 2. Puntos de Verificación Automatizados (5/5)
+1. **Arquitectura Limpia (ADR-003):** Cero dependencias de infraestructura en `internal/domain/` (`database/sql`, `pgx`, `fiber`, `redis`, `net/http`).
+2. **Compilación Go:** `go build ./...` y `go build ./cmd/api` deben terminar con exit code 0.
+3. **Análisis Estático:** `go vet ./internal/... ./cmd/...` aprobado sin advertencias o errores.
+4. **Pruebas Rápidas:** `go test ./internal/domain/... ./internal/application/...` aprobadas en memoria (< 5s). Con `--full` ejecuta `go test ./...`.
+5. **Servicios Docker:** `docker compose ps` reporta PostgreSQL 16, Redis 7 y Mailpit en estado activo.

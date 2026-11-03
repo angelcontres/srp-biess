@@ -49,3 +49,6 @@ logs/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Documentos cargados en desarrollo (SRP-017b)
+/storage/

@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react';
 import { CircleAlert, FileText, RotateCw, Upload } from 'lucide-react';
 import Button from './Button';
 import FieldError, { RequiredMark } from './FieldMessages';
+import { normalizeError } from '@/services/api/client';
 import { formatDateTime, formatFileSize, LOCALE } from '@/utils/format';
 
 export interface UploadedFileInfo {
@@ -26,6 +27,10 @@ export interface FileUploadProps {
   value: UploadedFileInfo | null;
   onChange: (value: UploadedFileInfo | null) => void;
   onUpload: UploadHandler;
+  /** Fetches the stored PDF; the Blob is saved with the attachment name. */
+  onDownload?: () => Promise<Blob>;
+  /** Deletes the stored PDF. The field is cleared only after the server confirms. */
+  onRemove?: () => Promise<void>;
   /** Validation error coming from the form (for example, a required document). */
   error?: string;
   required?: boolean;
@@ -36,7 +41,7 @@ type UploadState =
   | { kind: 'idle' }
   | { kind: 'uploading'; fileName: string; percent: number }
   | { kind: 'invalid'; message: string }
-  | { kind: 'failed'; file: File };
+  | { kind: 'failed'; file: File; message: string };
 
 const sizeFormatter = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
 
@@ -51,6 +56,25 @@ export function validatePdf(file: File, maxSizeMB: number): string | null {
   return null;
 }
 
+const CONNECTION_FAILURE = 'No se pudo subir el archivo por un problema de conexión. Reintente.';
+
+/**
+ * Upload failure: a 4xx rejection (415 not a PDF, 413 too large, 409 closed application) shows
+ * the server message and asks for another file; only network or 5xx failures offer a retry.
+ */
+function describeUploadFailure(error: unknown): { retry: boolean; message: string } {
+  const problem = normalizeError(error);
+  if (!problem.status) return { retry: true, message: CONNECTION_FAILURE };
+  if (problem.status >= 500) {
+    return { retry: true, message: 'No se pudo subir el archivo por un problema del sistema. Reintente.' };
+  }
+  // 413 from the body limit arrives without the API envelope.
+  if (problem.status === 413 && problem.code === '413') {
+    return { retry: false, message: 'El archivo supera el tamaño máximo permitido para este documento.' };
+  }
+  return { retry: false, message: problem.message };
+}
+
 /** PDF attachment with the five states of DESIGN file-upload.md. */
 export default function FileUpload({
   label,
@@ -59,6 +83,8 @@ export default function FileUpload({
   value,
   onChange,
   onUpload,
+  onDownload,
+  onRemove,
   error,
   required,
   id,
@@ -67,11 +93,15 @@ export default function FileUpload({
   const fieldId = id ?? `file-${generatedId}`;
   const hintId = `${fieldId}-hint`;
   const errorId = `${fieldId}-error`;
+  const actionErrorId = `${fieldId}-action-error`;
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const [state, setState] = useState<UploadState>({ kind: 'idle' });
+  const [busy, setBusy] = useState<'download' | 'remove' | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const upload = async (file: File) => {
+    setActionError(null);
     const invalid = validatePdf(file, maxSizeMB);
     if (invalid) {
       setState({ kind: 'invalid', message: invalid });
@@ -86,12 +116,66 @@ export default function FileUpload({
         (percent) => setState({ kind: 'uploading', fileName: file.name, percent }),
         controller.signal,
       );
+      // Replacing: the previous PDF is deleted on the server so it stops counting toward the
+      // 50 MB quota. Best effort: the new file is already stored either way.
+      if (value && onRemove) void onRemove().catch(() => undefined);
       onChange(uploaded);
       setState({ kind: 'idle' });
-    } catch {
-      setState(controller.signal.aborted ? { kind: 'idle' } : { kind: 'failed', file });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        setState({ kind: 'idle' });
+      } else {
+        const failure = describeUploadFailure(error);
+        setState(failure.retry ? { kind: 'failed', file, message: failure.message } : { kind: 'invalid', message: failure.message });
+      }
     } finally {
       abortRef.current = null;
+    }
+  };
+
+  const download = async () => {
+    if (!onDownload) return;
+    setActionError(null);
+    setBusy('download');
+    try {
+      const blob = await onDownload();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = value?.name ?? 'documento.pdf';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    } catch {
+      setActionError('No se pudo descargar el documento. Reintente.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const remove = async () => {
+    setActionError(null);
+    if (!onRemove) {
+      onChange(null);
+      setState({ kind: 'idle' });
+      return;
+    }
+    setBusy('remove');
+    try {
+      await onRemove();
+      onChange(null);
+      setState({ kind: 'idle' });
+    } catch (error) {
+      if (normalizeError(error).status === 404) {
+        // Already gone on the server (DOC_NO_ENCONTRADO): clear the stale reference.
+        onChange(null);
+        setState({ kind: 'idle' });
+        return;
+      }
+      setActionError('No se pudo eliminar el documento. Reintente.');
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -158,7 +242,17 @@ export default function FileUpload({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              {value.url ? (
+              {onDownload ? (
+                <Button
+                  variant="tertiary"
+                  onClick={() => void download()}
+                  isLoading={busy === 'download'}
+                  loadingText="Descargando"
+                  aria-label={`Descargar ${value.name}`}
+                >
+                  Descargar
+                </Button>
+              ) : value.url ? (
                 <a href={value.url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center">
                   Ver<span className="sr-only"> {value.name}</span>
                 </a>
@@ -168,10 +262,9 @@ export default function FileUpload({
               </Button>
               <Button
                 variant="tertiary"
-                onClick={() => {
-                  onChange(null);
-                  setState({ kind: 'idle' });
-                }}
+                onClick={() => void remove()}
+                isLoading={busy === 'remove'}
+                loadingText="Eliminando"
                 aria-label={`Eliminar ${value.name}`}
               >
                 Eliminar
@@ -192,11 +285,13 @@ export default function FileUpload({
 
       {state.kind === 'invalid' ? <FieldError error={state.message} errorId={`${fieldId}-invalid`} /> : null}
 
+      {actionError ? <FieldError error={actionError} errorId={actionErrorId} /> : null}
+
       {state.kind === 'failed' ? (
         <div role="alert" className="mt-2 flex flex-col gap-2 rounded-md border border-danger border-l-4 bg-danger-50 p-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex gap-2 text-base text-neutral-900">
             <CircleAlert size={20} strokeWidth={2} aria-hidden="true" className="shrink-0 text-danger" />
-            No se pudo subir el archivo por un problema de conexión. Reintente.
+            {state.message}
           </p>
           <Button
             variant="secondary"
