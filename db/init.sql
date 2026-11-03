@@ -193,13 +193,43 @@ CREATE TABLE IF NOT EXISTS domicilio_postulante (
   referencia         varchar(200) NOT NULL,
   telefono_domicilio varchar(20),
   created_at         timestamptz NOT NULL DEFAULT now(),
-  updated_at         timestamptz NOT NULL DEFAULT now(),
-  -- 52 = Ecuador en la semilla de países (sección 9).
-  CONSTRAINT ck_domicilio_pais_ec CHECK (
-    (pais_id = 52 AND provincia_id IS NOT NULL AND canton_id IS NOT NULL AND provincia_manual IS NULL AND ciudad_manual IS NULL)
-    OR (pais_id <> 52 AND provincia_manual IS NOT NULL AND ciudad_manual IS NOT NULL)
-  )
+  updated_at         timestamptz NOT NULL DEFAULT now()
 );
+
+-- Domicilio en Ecuador: provincia y cantón del catálogo; fuera de Ecuador: provincia y
+-- ciudad escritas (RF-EF12-07). Un CHECK no puede consultar otra tabla, por eso se usa un
+-- trigger que reconoce a Ecuador por su código ISO 'EC' y no por su id (SRP-019).
+CREATE OR REPLACE FUNCTION fn_domicilio_valida_ubicacion() RETURNS trigger AS $$
+DECLARE
+  es_ecuador boolean;
+BEGIN
+  SELECT codigo_iso2 = 'EC' INTO es_ecuador FROM pais WHERE id = NEW.pais_id;
+  IF es_ecuador THEN
+    IF NEW.provincia_id IS NULL OR NEW.canton_id IS NULL
+       OR NEW.provincia_manual IS NOT NULL OR NEW.ciudad_manual IS NOT NULL THEN
+      RAISE EXCEPTION 'Un domicilio en Ecuador requiere provincia y cantón del catálogo, sin provincia ni ciudad escritas'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM canton c JOIN provincia p ON p.id = c.provincia_id
+      WHERE c.id = NEW.canton_id AND p.id = NEW.provincia_id AND p.pais_id = NEW.pais_id
+    ) THEN
+      RAISE EXCEPTION 'El cantón no pertenece a la provincia o la provincia no pertenece al país'
+        USING ERRCODE = 'check_violation';
+    END IF;
+  ELSIF NEW.provincia_manual IS NULL OR NEW.ciudad_manual IS NULL THEN
+    RAISE EXCEPTION 'Un domicilio fuera de Ecuador requiere provincia o estado y ciudad'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+ALTER TABLE domicilio_postulante DROP CONSTRAINT IF EXISTS ck_domicilio_pais_ec;
+DROP TRIGGER IF EXISTS trg_domicilio_valida_ubicacion ON domicilio_postulante;
+CREATE TRIGGER trg_domicilio_valida_ubicacion
+  BEFORE INSERT OR UPDATE ON domicilio_postulante
+  FOR EACH ROW EXECUTE FUNCTION fn_domicilio_valida_ubicacion();
 
 CREATE TABLE IF NOT EXISTS familiar_institucion (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -622,7 +652,7 @@ INSERT INTO pais (id, codigo_iso2, codigo_iso3, nombre) VALUES
   (194, 'ZW', 'ZWE', 'Zimbabue')
 ON CONFLICT (codigo_iso2) DO NOTHING;
 
--- 24 Provincias de Ecuador (pais_id 52 = Ecuador; códigos INEC)
+-- 24 Provincias de Ecuador (pais_id 52 = Ecuador en la semilla de países; códigos INEC)
 INSERT INTO provincia (id, pais_id, codigo, nombre) VALUES
   (1, 52, '01', 'Azuay'),
   (2, 52, '02', 'Bolívar'),
@@ -650,234 +680,285 @@ INSERT INTO provincia (id, pais_id, codigo, nombre) VALUES
   (24, 52, '24', 'Santa Elena')
 ON CONFLICT (pais_id, codigo) DO NOTHING;
 
--- Cantones por provincia (provincia_id y prefijo de código según el INEC).
--- El sufijo del código es secuencial dentro de la provincia; reemplazar por el código
--- oficial del INEC al cargar el catálogo productivo (SDD 16.3).
-INSERT INTO canton (id, provincia_id, codigo, nombre) VALUES
--- Azuay (01)
+-- Cantones del Ecuador con su código oficial del INEC (SRP-019).
+-- Fuente: INEC, Clasificador Geográfico Estadístico, códigos de la División Político
+--   Administrativa 2026, hoja CANTONES:
+--   https://aplicaciones2.ecuadorencifras.gob.ec/SIN/descargas/cdpa2026.xlsx
+--   Fecha de corte: descargado el 03/11/2026 (archivo publicado el 27/02/2026).
+-- 222 cantones en las 24 provincias. Se excluye la "Zona en estudio" (código 90), que no
+-- pertenece a ninguna provincia. Los nombres pasan de mayúsculas a mayúscula inicial.
+-- El id es el código INEC sin el cero inicial (0101 -> 101). Idempotente: si el canton
+-- existe, se actualizan su provincia, código y nombre por id; los cantones del Ecuador
+-- que ya no figuran en la fuente se desactivan (no se borran, por los domicilios).
+-- Bases creadas con la semilla anterior, cuyos ids no coincidían con el código: se libera el
+-- código de esas filas para que la carga por id no choque con uq_canton_provincia_codigo.
+-- Sus ids pasan a representar otro cantón, así que en esas bases conviene recrear la base.
+UPDATE canton SET codigo = 'x' || id, activo = false
+WHERE codigo <> lpad(id::text, 4, '0')
+  AND provincia_id IN (
+    SELECT p.id FROM provincia p JOIN pais ON pais.id = p.pais_id WHERE pais.codigo_iso2 = 'EC'
+  );
+
+WITH oficial (id, provincia_id, codigo, nombre) AS (VALUES
+  -- Azuay (01)
   (101, 1, '0101', 'Cuenca'),
-  (102, 1, '0102', 'Gualaceo'),
-  (103, 1, '0103', 'Chordeleg'),
-  (104, 1, '0104', 'Sígsig'),
-  (105, 1, '0105', 'Girón'),
-  (106, 1, '0106', 'Santa Isabel'),
-  (107, 1, '0107', 'Pucará'),
-  (108, 1, '0108', 'Camilo Ponce Enríquez'),
--- Bolívar (02)
-  (109, 2, '0201', 'Guaranda'),
-  (110, 2, '0202', 'Chillanes'),
-  (111, 2, '0203', 'Chimbo'),
-  (112, 2, '0204', 'Echeandía'),
-  (113, 2, '0205', 'San Miguel'),
-  (114, 2, '0206', 'Caluma'),
-  (115, 2, '0207', 'Las Naves'),
--- Cañar (03)
-  (116, 3, '0301', 'Azogues'),
-  (117, 3, '0302', 'Biblián'),
-  (118, 3, '0303', 'Cañar'),
-  (119, 3, '0304', 'Déleg'),
-  (120, 3, '0305', 'El Tambo'),
-  (121, 3, '0306', 'Suscal'),
-  (122, 3, '0307', 'La Troncal'),
--- Carchi (04)
-  (123, 4, '0401', 'Tulcán'),
-  (124, 4, '0402', 'Bolívar'),
-  (125, 4, '0403', 'Espejo'),
-  (126, 4, '0404', 'Mira'),
-  (127, 4, '0405', 'Montúfar'),
-  (128, 4, '0406', 'San Pedro de Huaca'),
--- Chimborazo (06)
-  (129, 6, '0601', 'Riobamba'),
-  (130, 6, '0602', 'Alausí'),
-  (131, 6, '0603', 'Colta'),
-  (132, 6, '0604', 'Chunchi'),
-  (133, 6, '0605', 'Guamote'),
-  (134, 6, '0606', 'Guano'),
-  (135, 6, '0607', 'Pallatanga'),
-  (136, 6, '0608', 'Penipe'),
-  (137, 6, '0609', 'Cumandá'),
--- Cotopaxi (05)
-  (138, 5, '0501', 'Latacunga'),
-  (139, 5, '0502', 'La Maná'),
-  (140, 5, '0503', 'Pangua'),
-  (141, 5, '0504', 'Pujilí'),
-  (142, 5, '0505', 'Salcedo'),
-  (143, 5, '0506', 'Saquisilí'),
-  (144, 5, '0507', 'Sigchos'),
--- El Oro (07)
-  (145, 7, '0701', 'Machala'),
-  (146, 7, '0702', 'Arenillas'),
-  (147, 7, '0703', 'Atahualpa'),
-  (148, 7, '0704', 'Balsas'),
-  (149, 7, '0705', 'Chilla'),
-  (150, 7, '0706', 'El Guabo'),
-  (151, 7, '0707', 'Huaquillas'),
-  (152, 7, '0708', 'Las Lajas'),
-  (153, 7, '0709', 'Marcabelí'),
-  (154, 7, '0710', 'Pasaje'),
-  (155, 7, '0711', 'Piñas'),
-  (156, 7, '0712', 'Portovelo'),
-  (157, 7, '0713', 'Santa Rosa'),
-  (158, 7, '0714', 'Zaruma'),
--- Esmeraldas (08)
-  (159, 8, '0801', 'Esmeraldas'),
-  (160, 8, '0802', 'Atacames'),
-  (161, 8, '0803', 'Eloy Alfaro'),
-  (162, 8, '0804', 'Muisne'),
-  (163, 8, '0805', 'Quinindé'),
-  (164, 8, '0806', 'Rioverde'),
-  (165, 8, '0807', 'San Lorenzo'),
--- Galápagos (20)
-  (166, 20, '2001', 'San Cristóbal'),
-  (167, 20, '2002', 'Isabela'),
-  (168, 20, '2003', 'Santa Cruz'),
--- Guayas (09)
-  (169, 9, '0901', 'Guayaquil'),
-  (170, 9, '0902', 'Durán'),
-  (171, 9, '0903', 'Milagro'),
-  (172, 9, '0904', 'Samborondón'),
-  (173, 9, '0905', 'Daule'),
-  (174, 9, '0906', 'Playas'),
-  (175, 9, '0907', 'Balzar'),
-  (176, 9, '0908', 'Colimes'),
-  (177, 9, '0909', 'El Empalme'),
-  (178, 9, '0910', 'El Triunfo'),
-  (179, 9, '0911', 'Isidro Ayora'),
-  (180, 9, '0912', 'Lomas de Sargentillo'),
-  (181, 9, '0913', 'Naranjal'),
-  (182, 9, '0914', 'Naranjito'),
-  (183, 9, '0915', 'Nobol'),
-  (184, 9, '0916', 'Pedro Carbo'),
-  (185, 9, '0917', 'Salitre'),
-  (186, 9, '0918', 'Simón Bolívar'),
-  (187, 9, '0919', 'Yaguachi'),
--- Imbabura (10)
-  (188, 10, '1001', 'Ibarra'),
-  (189, 10, '1002', 'Antonio Ante'),
-  (190, 10, '1003', 'Cotacachi'),
-  (191, 10, '1004', 'Otavalo'),
-  (192, 10, '1005', 'Pimampiro'),
-  (193, 10, '1006', 'San Miguel de Urcuquí'),
--- Loja (11)
-  (194, 11, '1101', 'Loja'),
-  (195, 11, '1102', 'Calvas'),
-  (196, 11, '1103', 'Catamayo'),
-  (197, 11, '1104', 'Celica'),
-  (198, 11, '1105', 'Chaguarpamba'),
-  (199, 11, '1106', 'Espíndola'),
-  (200, 11, '1107', 'Gonzanamá'),
-  (201, 11, '1108', 'Macará'),
-  (202, 11, '1109', 'Paltas'),
-  (203, 11, '1110', 'Puyango'),
-  (204, 11, '1111', 'Saraguro'),
-  (205, 11, '1112', 'Sozoranga'),
-  (206, 11, '1113', 'Zapotillo'),
--- Los Ríos (12)
-  (207, 12, '1201', 'Babahoyo'),
-  (208, 12, '1202', 'Baba'),
-  (209, 12, '1203', 'Buena Fe'),
-  (210, 12, '1204', 'Mocache'),
-  (211, 12, '1205', 'Montalvo'),
-  (212, 12, '1206', 'Palenque'),
-  (213, 12, '1207', 'Puebloviejo'),
-  (214, 12, '1208', 'Quevedo'),
-  (215, 12, '1209', 'Urdaneta'),
-  (216, 12, '1210', 'Ventanas'),
-  (217, 12, '1211', 'Vinces'),
-  (218, 12, '1212', 'Valencia'),
--- Manabí (13)
-  (219, 13, '1301', 'Portoviejo'),
-  (220, 13, '1302', 'Manta'),
-  (221, 13, '1303', 'Chone'),
-  (222, 13, '1304', 'Bolívar'),
-  (223, 13, '1305', 'El Carmen'),
-  (224, 13, '1306', 'Flavio Alfaro'),
-  (225, 13, '1307', 'Jipijapa'),
-  (226, 13, '1308', 'Junín'),
-  (227, 13, '1309', 'Montecristi'),
-  (228, 13, '1310', 'Paján'),
-  (229, 13, '1311', 'Pichincha'),
-  (230, 13, '1312', 'Rocafuerte'),
-  (231, 13, '1313', 'Santa Ana'),
-  (232, 13, '1314', 'Sucre'),
-  (233, 13, '1315', 'Tosagua'),
-  (234, 13, '1316', '24 de Mayo'),
-  (235, 13, '1317', 'Pedernales'),
-  (236, 13, '1318', 'Olmedo'),
-  (237, 13, '1319', 'Puerto López'),
-  (238, 13, '1320', 'Jama'),
-  (239, 13, '1321', 'Jaramijó'),
-  (240, 13, '1322', 'San Vicente'),
--- Morona Santiago (14)
-  (241, 14, '1401', 'Morona'),
-  (242, 14, '1402', 'Gualaquiza'),
-  (243, 14, '1403', 'Limón Indanza'),
-  (244, 14, '1404', 'Palora'),
-  (245, 14, '1405', 'San Juan Bosco'),
-  (246, 14, '1406', 'Santiago'),
-  (247, 14, '1407', 'Sucúa'),
-  (248, 14, '1408', 'Taisha'),
-  (249, 14, '1409', 'Tiwintza'),
--- Napo (15)
-  (250, 15, '1501', 'Tena'),
-  (251, 15, '1502', 'Archidona'),
-  (252, 15, '1503', 'Carlos Julio Arosemena Tola'),
-  (253, 15, '1504', 'El Chaco'),
-  (254, 15, '1505', 'Quijos'),
--- Orellana (22)
-  (255, 22, '2201', 'Francisco de Orellana'),
-  (256, 22, '2202', 'Aguarico'),
-  (257, 22, '2203', 'La Joya de los Sachas'),
-  (258, 22, '2204', 'Loreto'),
--- Pastaza (16)
-  (259, 16, '1601', 'Pastaza'),
-  (260, 16, '1602', 'Arajuno'),
-  (261, 16, '1603', 'Mera'),
-  (262, 16, '1604', 'Santa Clara'),
--- Pichincha (17)
-  (263, 17, '1701', 'Quito'),
-  (264, 17, '1702', 'Cayambe'),
-  (265, 17, '1703', 'Mejía'),
-  (266, 17, '1704', 'Pedro Moncayo'),
-  (267, 17, '1705', 'Pedro Vicente Maldonado'),
-  (268, 17, '1706', 'Puerto Quito'),
-  (269, 17, '1707', 'Rumiñahui'),
-  (270, 17, '1708', 'San Miguel de los Bancos'),
--- Santa Elena (24)
-  (271, 24, '2401', 'Santa Elena'),
-  (272, 24, '2402', 'La Libertad'),
--- Santo Domingo de los Tsáchilas (23)
-  (273, 23, '2301', 'La Concordia'),
-  (274, 23, '2302', 'Santo Domingo'),
--- Sucumbíos (21)
-  (275, 21, '2101', 'Cascales'),
-  (276, 21, '2102', 'Cuyabeno'),
-  (277, 21, '2103', 'Gonzalo Pizarro'),
-  (278, 21, '2104', 'Lago Agrio'),
-  (279, 21, '2105', 'Putumayo'),
-  (280, 21, '2106', 'Shushufindi'),
-  (281, 21, '2107', 'Sucumbíos'),
--- Tungurahua (18)
-  (282, 18, '1801', 'Ambato'),
-  (283, 18, '1802', 'Baños de Agua Santa'),
-  (284, 18, '1803', 'Cevallos'),
-  (285, 18, '1804', 'Mocha'),
-  (286, 18, '1805', 'Patate'),
-  (287, 18, '1806', 'Pelileo'),
-  (288, 18, '1807', 'Píllaro'),
-  (289, 18, '1808', 'Quero'),
-  (290, 18, '1809', 'Tisaleo'),
--- Zamora Chinchipe (19)
-  (291, 19, '1901', 'Centinela del Cóndor'),
-  (292, 19, '1902', 'Chinchipe'),
-  (293, 19, '1903', 'El Pangui'),
-  (294, 19, '1904', 'Nangaritza'),
-  (295, 19, '1905', 'Palanda'),
-  (296, 19, '1906', 'Paquisha'),
-  (297, 19, '1907', 'Yacuambi'),
-  (298, 19, '1908', 'Yantzaza'),
-  (299, 19, '1909', 'Zamora')
-ON CONFLICT (provincia_id, codigo) DO NOTHING;
+  (102, 1, '0102', 'Girón'),
+  (103, 1, '0103', 'Gualaceo'),
+  (104, 1, '0104', 'Nabón'),
+  (105, 1, '0105', 'Paute'),
+  (106, 1, '0106', 'Pucará'),
+  (107, 1, '0107', 'San Fernando'),
+  (108, 1, '0108', 'Santa Isabel'),
+  (109, 1, '0109', 'Sígsig'),
+  (110, 1, '0110', 'Oña'),
+  (111, 1, '0111', 'Chordeleg'),
+  (112, 1, '0112', 'El Pan'),
+  (113, 1, '0113', 'Sevilla de Oro'),
+  (114, 1, '0114', 'Guachapala'),
+  (115, 1, '0115', 'Camilo Ponce Enríquez'),
+  -- Bolívar (02)
+  (201, 2, '0201', 'Guaranda'),
+  (202, 2, '0202', 'Chillanes'),
+  (203, 2, '0203', 'Chimbo'),
+  (204, 2, '0204', 'Echeandía'),
+  (205, 2, '0205', 'San Miguel'),
+  (206, 2, '0206', 'Caluma'),
+  (207, 2, '0207', 'Las Naves'),
+  -- Cañar (03)
+  (301, 3, '0301', 'Azogues'),
+  (302, 3, '0302', 'Biblián'),
+  (303, 3, '0303', 'Cañar'),
+  (304, 3, '0304', 'La Troncal'),
+  (305, 3, '0305', 'El Tambo'),
+  (306, 3, '0306', 'Déleg'),
+  (307, 3, '0307', 'Suscal'),
+  -- Carchi (04)
+  (401, 4, '0401', 'Tulcán'),
+  (402, 4, '0402', 'Bolívar'),
+  (403, 4, '0403', 'Espejo'),
+  (404, 4, '0404', 'Mira'),
+  (405, 4, '0405', 'Montúfar'),
+  (406, 4, '0406', 'San Pedro de Huaca'),
+  -- Cotopaxi (05)
+  (501, 5, '0501', 'Latacunga'),
+  (502, 5, '0502', 'La Maná'),
+  (503, 5, '0503', 'Pangua'),
+  (504, 5, '0504', 'Pujilí'),
+  (505, 5, '0505', 'Salcedo'),
+  (506, 5, '0506', 'Saquisilí'),
+  (507, 5, '0507', 'Sigchos'),
+  -- Chimborazo (06)
+  (601, 6, '0601', 'Riobamba'),
+  (602, 6, '0602', 'Alausí'),
+  (603, 6, '0603', 'Colta'),
+  (604, 6, '0604', 'Chambo'),
+  (605, 6, '0605', 'Chunchi'),
+  (606, 6, '0606', 'Guamote'),
+  (607, 6, '0607', 'Guano'),
+  (608, 6, '0608', 'Pallatanga'),
+  (609, 6, '0609', 'Penipe'),
+  (610, 6, '0610', 'Cumandá'),
+  -- El Oro (07)
+  (701, 7, '0701', 'Machala'),
+  (702, 7, '0702', 'Arenillas'),
+  (703, 7, '0703', 'Atahualpa'),
+  (704, 7, '0704', 'Balsas'),
+  (705, 7, '0705', 'Chilla'),
+  (706, 7, '0706', 'El Guabo'),
+  (707, 7, '0707', 'Huaquillas'),
+  (708, 7, '0708', 'Marcabelí'),
+  (709, 7, '0709', 'Pasaje'),
+  (710, 7, '0710', 'Piñas'),
+  (711, 7, '0711', 'Portovelo'),
+  (712, 7, '0712', 'Santa Rosa'),
+  (713, 7, '0713', 'Zaruma'),
+  (714, 7, '0714', 'Las Lajas'),
+  -- Esmeraldas (08)
+  (801, 8, '0801', 'Esmeraldas'),
+  (802, 8, '0802', 'Eloy Alfaro'),
+  (803, 8, '0803', 'Muisne'),
+  (804, 8, '0804', 'Quinindé'),
+  (805, 8, '0805', 'San Lorenzo'),
+  (806, 8, '0806', 'Atacames'),
+  (807, 8, '0807', 'Rioverde'),
+  -- Guayas (09)
+  (901, 9, '0901', 'Guayaquil'),
+  (902, 9, '0902', 'Alfredo Baquerizo Moreno (Juján)'),
+  (903, 9, '0903', 'Balao'),
+  (904, 9, '0904', 'Balzar'),
+  (905, 9, '0905', 'Colimes'),
+  (906, 9, '0906', 'Daule'),
+  (907, 9, '0907', 'Durán'),
+  (908, 9, '0908', 'El Empalme'),
+  (909, 9, '0909', 'El Triunfo'),
+  (910, 9, '0910', 'Milagro'),
+  (911, 9, '0911', 'Naranjal'),
+  (912, 9, '0912', 'Naranjito'),
+  (913, 9, '0913', 'Palestina'),
+  (914, 9, '0914', 'Pedro Carbo'),
+  (916, 9, '0916', 'Samborondón'),
+  (918, 9, '0918', 'Santa Lucía'),
+  (919, 9, '0919', 'Salitre'),
+  (920, 9, '0920', 'San Jacinto de Yaguachi'),
+  (921, 9, '0921', 'Playas'),
+  (922, 9, '0922', 'Simón Bolívar'),
+  (923, 9, '0923', 'Coronel Marcelino Maridueña'),
+  (924, 9, '0924', 'Lomas de Sargentillo'),
+  (925, 9, '0925', 'Nobol'),
+  (927, 9, '0927', 'General Antonio Elizalde'),
+  (928, 9, '0928', 'Isidro Ayora'),
+  -- Imbabura (10)
+  (1001, 10, '1001', 'Ibarra'),
+  (1002, 10, '1002', 'Antonio Ante'),
+  (1003, 10, '1003', 'Cotacachi'),
+  (1004, 10, '1004', 'Otavalo'),
+  (1005, 10, '1005', 'Pimampiro'),
+  (1006, 10, '1006', 'San Miguel de Urcuquí'),
+  -- Loja (11)
+  (1101, 11, '1101', 'Loja'),
+  (1102, 11, '1102', 'Calvas'),
+  (1103, 11, '1103', 'Catamayo'),
+  (1104, 11, '1104', 'Celica'),
+  (1105, 11, '1105', 'Chaguarpamba'),
+  (1106, 11, '1106', 'Espíndola'),
+  (1107, 11, '1107', 'Gonzanamá'),
+  (1108, 11, '1108', 'Macará'),
+  (1109, 11, '1109', 'Paltas'),
+  (1110, 11, '1110', 'Puyango'),
+  (1111, 11, '1111', 'Saraguro'),
+  (1112, 11, '1112', 'Sozoranga'),
+  (1113, 11, '1113', 'Zapotillo'),
+  (1114, 11, '1114', 'Pindal'),
+  (1115, 11, '1115', 'Quilanga'),
+  (1116, 11, '1116', 'Olmedo'),
+  -- Los Ríos (12)
+  (1201, 12, '1201', 'Babahoyo'),
+  (1202, 12, '1202', 'Baba'),
+  (1203, 12, '1203', 'Montalvo'),
+  (1204, 12, '1204', 'Puebloviejo'),
+  (1205, 12, '1205', 'Quevedo'),
+  (1206, 12, '1206', 'Urdaneta'),
+  (1207, 12, '1207', 'Ventanas'),
+  (1208, 12, '1208', 'Vinces'),
+  (1209, 12, '1209', 'Palenque'),
+  (1210, 12, '1210', 'Buena Fe'),
+  (1211, 12, '1211', 'Valencia'),
+  (1212, 12, '1212', 'Mocache'),
+  (1213, 12, '1213', 'Quinsaloma'),
+  -- Manabí (13)
+  (1301, 13, '1301', 'Portoviejo'),
+  (1302, 13, '1302', 'Bolívar'),
+  (1303, 13, '1303', 'Chone'),
+  (1304, 13, '1304', 'El Carmen'),
+  (1305, 13, '1305', 'Flavio Alfaro'),
+  (1306, 13, '1306', 'Jipijapa'),
+  (1307, 13, '1307', 'Junín'),
+  (1308, 13, '1308', 'Manta'),
+  (1309, 13, '1309', 'Montecristi'),
+  (1310, 13, '1310', 'Paján'),
+  (1311, 13, '1311', 'Pichincha'),
+  (1312, 13, '1312', 'Rocafuerte'),
+  (1313, 13, '1313', 'Santa Ana'),
+  (1314, 13, '1314', 'Sucre'),
+  (1315, 13, '1315', 'Tosagua'),
+  (1316, 13, '1316', '24 de Mayo'),
+  (1317, 13, '1317', 'Pedernales'),
+  (1318, 13, '1318', 'Olmedo'),
+  (1319, 13, '1319', 'Puerto López'),
+  (1320, 13, '1320', 'Jama'),
+  (1321, 13, '1321', 'Jaramijó'),
+  (1322, 13, '1322', 'San Vicente'),
+  -- Morona Santiago (14)
+  (1401, 14, '1401', 'Morona'),
+  (1402, 14, '1402', 'Gualaquiza'),
+  (1403, 14, '1403', 'Limón Indanza'),
+  (1404, 14, '1404', 'Palora'),
+  (1405, 14, '1405', 'Santiago'),
+  (1406, 14, '1406', 'Sucúa'),
+  (1407, 14, '1407', 'Huamboya'),
+  (1408, 14, '1408', 'San Juan Bosco'),
+  (1409, 14, '1409', 'Taisha'),
+  (1410, 14, '1410', 'Logroño'),
+  (1411, 14, '1411', 'Pablo Sexto'),
+  (1412, 14, '1412', 'Tiwintza'),
+  (1413, 14, '1413', 'Sevilla Don Bosco'),
+  -- Napo (15)
+  (1501, 15, '1501', 'Tena'),
+  (1503, 15, '1503', 'Archidona'),
+  (1504, 15, '1504', 'El Chaco'),
+  (1507, 15, '1507', 'Quijos'),
+  (1509, 15, '1509', 'Carlos Julio Arosemena Tola'),
+  -- Pastaza (16)
+  (1601, 16, '1601', 'Pastaza'),
+  (1602, 16, '1602', 'Mera'),
+  (1603, 16, '1603', 'Santa Clara'),
+  (1604, 16, '1604', 'Arajuno'),
+  -- Pichincha (17)
+  (1701, 17, '1701', 'Distrito Metropolitano de Quito'),
+  (1702, 17, '1702', 'Cayambe'),
+  (1703, 17, '1703', 'Mejía'),
+  (1704, 17, '1704', 'Pedro Moncayo'),
+  (1705, 17, '1705', 'Rumiñahui'),
+  (1707, 17, '1707', 'San Miguel de los Bancos'),
+  (1708, 17, '1708', 'Pedro Vicente Maldonado'),
+  (1709, 17, '1709', 'Puerto Quito'),
+  -- Tungurahua (18)
+  (1801, 18, '1801', 'Ambato'),
+  (1802, 18, '1802', 'Baños de Agua Santa'),
+  (1803, 18, '1803', 'Cevallos'),
+  (1804, 18, '1804', 'Mocha'),
+  (1805, 18, '1805', 'Patate'),
+  (1806, 18, '1806', 'Quero'),
+  (1807, 18, '1807', 'San Pedro de Pelileo'),
+  (1808, 18, '1808', 'Santiago de Píllaro'),
+  (1809, 18, '1809', 'Tisaleo'),
+  -- Zamora Chinchipe (19)
+  (1901, 19, '1901', 'Zamora'),
+  (1902, 19, '1902', 'Chinchipe'),
+  (1903, 19, '1903', 'Nangaritza'),
+  (1904, 19, '1904', 'Yacuambi'),
+  (1905, 19, '1905', 'Yantzaza'),
+  (1906, 19, '1906', 'El Pangui'),
+  (1907, 19, '1907', 'Centinela del Cóndor'),
+  (1908, 19, '1908', 'Palanda'),
+  (1909, 19, '1909', 'Paquisha'),
+  -- Galápagos (20)
+  (2001, 20, '2001', 'San Cristóbal'),
+  (2002, 20, '2002', 'Isabela'),
+  (2003, 20, '2003', 'Santa Cruz'),
+  -- Sucumbíos (21)
+  (2101, 21, '2101', 'Lago Agrio'),
+  (2102, 21, '2102', 'Gonzalo Pizarro'),
+  (2103, 21, '2103', 'Putumayo'),
+  (2104, 21, '2104', 'Shushufindi'),
+  (2105, 21, '2105', 'Sucumbíos'),
+  (2106, 21, '2106', 'Cascales'),
+  (2107, 21, '2107', 'Cuyabeno'),
+  -- Orellana (22)
+  (2201, 22, '2201', 'Francisco de Orellana'),
+  (2202, 22, '2202', 'Aguarico'),
+  (2203, 22, '2203', 'La Joya de los Sachas'),
+  (2204, 22, '2204', 'Loreto'),
+  -- Santo Domingo de los Tsáchilas (23)
+  (2301, 23, '2301', 'Santo Domingo'),
+  (2302, 23, '2302', 'La Concordia'),
+  -- Santa Elena (24)
+  (2401, 24, '2401', 'Santa Elena'),
+  (2402, 24, '2402', 'La Libertad'),
+  (2403, 24, '2403', 'Salinas')
+), cargados AS (
+  INSERT INTO canton (id, provincia_id, codigo, nombre, activo)
+  SELECT id::smallint, provincia_id::smallint, codigo, nombre, true FROM oficial
+  ON CONFLICT (id) DO UPDATE
+    SET provincia_id = EXCLUDED.provincia_id, codigo = EXCLUDED.codigo,
+        nombre = EXCLUDED.nombre, activo = true
+  RETURNING id
+)
+UPDATE canton SET activo = false
+WHERE id NOT IN (SELECT id FROM oficial)
+  AND provincia_id IN (
+    SELECT p.id FROM provincia p JOIN pais ON pais.id = p.pais_id WHERE pais.codigo_iso2 = 'EC'
+  );
 
 -- Cargos del Directorio del BIESS
 INSERT INTO cargo (id, codigo, nombre, sector) VALUES
