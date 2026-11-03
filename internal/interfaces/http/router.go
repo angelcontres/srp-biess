@@ -13,6 +13,8 @@ type RouterConfig struct {
 	HealthHandler      *handlers.HealthHandler
 	AuthHandler        *handlers.AuthHandler
 	EligibilityHandler *handlers.EligibilityHandler
+	PostulacionHandler *handlers.PostulacionHandler
+	CatalogoHandler    *handlers.CatalogoHandler
 	AuthService        *application.AuthService
 }
 
@@ -60,5 +62,40 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 	if cfg.EligibilityHandler != nil {
 		elegibilidad := v1.Group("/elegibilidad")
 		elegibilidad.Post("/verificar", cfg.EligibilityHandler.Verificar)
+	}
+
+	// -----------------------------------------------------------------
+	// Catálogos geográficos públicos (SDD 7.3.2), integración de SRP-013/SRP-014.
+	// -----------------------------------------------------------------
+	if cfg.CatalogoHandler != nil {
+		catalogos := v1.Group("/catalogos")
+		catalogos.Get("/paises", cfg.CatalogoHandler.Paises)
+		catalogos.Get("/paises/:paisId/provincias", cfg.CatalogoHandler.Provincias)
+		catalogos.Get("/provincias/:provinciaId/cantones", cfg.CatalogoHandler.Cantones)
+	}
+
+	// -----------------------------------------------------------------
+	// Formulario de postulación (SDD 7.3.4): integración mínima de SRP-013.
+	// El JWT se aplica por grupo con prefijo propio, así que las rutas inexistentes
+	// bajo /postulaciones responden 404 y no 401.
+	// TODO(backend: SRP-005): cargo + elegibilidad, documentos, guardar y enviar.
+	// -----------------------------------------------------------------
+	if cfg.PostulacionHandler != nil && cfg.AuthService != nil {
+		h := cfg.PostulacionHandler
+		postulaciones := v1.Group("/postulaciones", middleware.JWTProtected(cfg.AuthService))
+		postulaciones.Get("/actual", h.ObtenerActual)
+		postulaciones.Post("/", h.Crear)
+		postulaciones.Get("/:id", h.ObtenerDetalle)
+
+		// Guardado por sección: una sola operación expuesta en las rutas del SDD.
+		postulaciones.Patch("/:id/informacion-personal", h.GuardarSeccion("personal"))
+		postulaciones.Put("/:id/domicilio", h.GuardarSeccion("domicilio"))
+		postulaciones.Put("/:id/familiares", h.GuardarSeccion("familiares"))
+		postulaciones.Put("/:id/respaldo-organizacional", h.GuardarSeccion("cargo"))
+		postulaciones.Put("/:id/formacion-academica", h.GuardarSeccion("formacion"))
+		postulaciones.Put("/:id/experiencia", h.GuardarSeccion("experiencia"))
+		postulaciones.Put("/:id/publicaciones", h.GuardarSeccion("publicaciones"))
+		postulaciones.Put("/:id/capacitaciones", h.GuardarSeccion("capacitacion"))
+		postulaciones.Put("/:id/inhabilidades", h.GuardarSeccion("inhabilidades"))
 	}
 }

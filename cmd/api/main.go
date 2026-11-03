@@ -59,6 +59,8 @@ func main() {
 	var notificacionRepo domain.NotificacionRepository
 	var txManager domain.TxManager
 	var postulacionService *application.PostulacionService
+	// Se deja en nil (interfaz nula) sin PostgreSQL: el servicio responde 503 en lugar de fallar.
+	var formularioRepo domain.FormularioRepository
 
 	if pool != nil {
 		postulanteRepo = database.NewPostgresPostulanteRepository(pool)
@@ -69,6 +71,9 @@ func main() {
 		txManager = database.NewPgxTxManager(pool)
 		postulacionService = application.NewPostulacionService(txManager, postulacionRepo, documentoRepo, notificacionRepo)
 		_ = postulacionService
+		formularioRepo = database.NewPostgresFormularioRepository(pool)
+		_ = postulacionRepo
+		_ = documentoRepo
 	}
 
 	// Almacén de sesiones y refresh tokens en Redis (ADR-006)
@@ -94,7 +99,12 @@ func main() {
 	authService := application.NewAuthService(postulanteRepo, cedulaStrategy, sessionStore).
 		WithIdentityProvider(registroCivilMock)
 	eligibilityService := application.NewEligibilityService(iessMock)
-	_ = application.NewCatalogoService(catalogoRepo)
+	formularioService := application.NewFormularioService(formularioRepo) // SRP-013, integración mínima
+	// Sin PostgreSQL el handler recibe nil y responde 503 (no se invoca un repositorio nulo).
+	var catalogoService *application.CatalogoService
+	if catalogoRepo != nil {
+		catalogoService = application.NewCatalogoService(catalogoRepo)
+	}
 
 	// =========================================================================
 	// FASE 6: Capa de Presentación (Handlers HTTP & DTOs)
@@ -102,6 +112,8 @@ func main() {
 	healthHandler := handlers.NewHealthHandler()
 	authHandler := handlers.NewAuthHandler(authService)
 	eligibilityHandler := handlers.NewEligibilityHandler(eligibilityService)
+	postulacionHandler := handlers.NewPostulacionHandler(formularioService)
+	catalogoHandler := handlers.NewCatalogoHandler(catalogoService)
 
 	// =========================================================================
 	// FASE 7: Servidor Fiber & Middlewares Globales (SRP-001)
@@ -126,6 +138,8 @@ func main() {
 		HealthHandler:      healthHandler,
 		AuthHandler:        authHandler,
 		EligibilityHandler: eligibilityHandler,
+		PostulacionHandler: postulacionHandler,
+		CatalogoHandler:    catalogoHandler,
 		AuthService:        authService,
 	})
 
