@@ -8,6 +8,7 @@ import LockoutNotice from '@/features/auth/components/LockoutNotice';
 import { useCountdown } from '@/features/auth/hooks/useCountdown';
 import { api, DEFAULT_LOCKOUT_SECONDS, normalizeError } from '@/services/api/client';
 import { setAccessToken } from '@/store/authStore';
+import { RequiredNote } from '@/components/ui/FieldMessages';
 
 export interface LoginResponse {
   access_token: string;
@@ -101,6 +102,7 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
         ) : null}
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-6" noValidate>
+          <RequiredNote />
           <TextField
             label="Cédula de identidad"
             value={cedula}
