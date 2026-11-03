@@ -49,6 +49,8 @@ type PostulacionRepository interface {
 	GetIdempotentSubmission(ctx context.Context, key string) (*IdempotentSubmission, error)
 	SaveIdempotentSubmission(ctx context.Context, key, postulacionID string, response []byte) error
 	SaveConsentimiento(ctx context.Context, postulacionID, version string) error
+	// SaveTextosConsentimiento guarda los textos que el postulante aceptó (consentimiento.textos_aceptados).
+	SaveTextosConsentimiento(ctx context.Context, postulacionID string, textos []string) error
 }
 
 // IdempotentSubmission contiene la respuesta persistida de un envío ya procesado.
