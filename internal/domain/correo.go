@@ -17,7 +17,8 @@ type Adjunto struct {
 
 // Correo es un mensaje listo para enviar: versión HTML y versión de texto plano.
 type Correo struct {
-	Para     string
+	Para     string   // Destinatario principal
+	CC       []string // Destinatarios en copia (correos secundarios)
 	Asunto   string
 	HTML     string
 	Texto    string

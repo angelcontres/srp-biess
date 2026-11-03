@@ -111,6 +111,8 @@ export default function MiPostulacionPage({ gateway = postulacionGateway }: MiPo
   const elegibilidad = postulacion?.elegibilidad ?? null;
   const cargo = CARGOS.find((item) => item.id === elegibilidad?.cargoId);
   const enviada = postulacion ? ENVIADAS.includes(postulacion.estado) : false;
+  // NO_ELEGIBLE never reaches submission (SDD 10.11): no code and no PDF are generated.
+  const noAplica = postulacion?.estado === 'NO_ELEGIBLE';
 
   return (
     <div className="mx-auto max-w-5xl space-y-12 px-4 py-8 sm:px-6">
@@ -158,6 +160,8 @@ export default function MiPostulacionPage({ gateway = postulacionGateway }: MiPo
                 <dd className="text-base text-neutral-900">
                   {enviada && postulacion.codigoUnico ? (
                     <span className="font-semibold tabular-nums">{postulacion.codigoUnico}</span>
+                  ) : noAplica ? (
+                    'No aplica.'
                   ) : (
                     'Se asigna al enviar la postulación.'
                   )}
@@ -259,6 +263,13 @@ export default function MiPostulacionPage({ gateway = postulacionGateway }: MiPo
                     No se pudo descargar el formulario. Reintente.
                   </p>
                 ) : null}
+              </div>
+            ) : noAplica ? (
+              <div className="max-w-prose space-y-1 text-base">
+                <p className="font-semibold text-neutral-900">No aplica.</p>
+                <p className="text-neutral-700">
+                  Su postulación no cumple los requisitos de elegibilidad, por lo que no se genera el formulario.
+                </p>
               </div>
             ) : (
               <p className="max-w-prose text-base text-neutral-700">

@@ -287,6 +287,7 @@ func (s *PostulacionService) EnviarPostulacion(ctx context.Context, req EnviarPo
 			PostulanteID:  p.PostulanteID,
 			Tipo:          "CONFIRMACION_POSTULACION",
 			Destinatario:  postulante.Email,
+			CC:            correoSecundario(postulante.EmailSecundario),
 			Asunto:        fmt.Sprintf("Confirmación de Postulación BIESS — %s", codigoUnico),
 			Plantilla:     "confirmacion_postulacion.html",
 			Payload: map[string]any{
@@ -417,4 +418,12 @@ func (s *PostulacionService) DescargarFormulario(ctx context.Context, postulacio
 		}
 	}
 	return nil, nil, domain.ErrDocumentoNoEncontrado
+}
+
+// correoSecundario convierte un email secundario opcional en slice CC.
+func correoSecundario(emailSecundario *string) []string {
+	if emailSecundario != nil && *emailSecundario != "" {
+		return []string{*emailSecundario}
+	}
+	return nil
 }

@@ -33,9 +33,9 @@ func (r *PostgresNotificacionRepository) Enqueue(ctx context.Context, n *domain.
 
 	query := `
 		INSERT INTO notificacion (
-			postulacion_id, postulante_id, tipo, destinatario, asunto, plantilla, payload, estado, fecha_creacion
+			postulacion_id, postulante_id, tipo, destinatario, cc, asunto, plantilla, payload, estado, fecha_creacion
 		) VALUES (
-			$1::uuid, $2::uuid, $3, $4, $5, $6, $7::jsonb, 'PENDIENTE', now()
+			$1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8::jsonb, 'PENDIENTE', now()
 		) RETURNING id, fecha_creacion`
 
 	return r.getQuerier(ctx).QueryRow(ctx, query,
@@ -43,6 +43,7 @@ func (r *PostgresNotificacionRepository) Enqueue(ctx context.Context, n *domain.
 		n.PostulanteID,
 		n.Tipo,
 		n.Destinatario,
+		n.CC,
 		n.Asunto,
 		n.Plantilla,
 		string(payloadJSON),

@@ -91,8 +91,19 @@ func (s *SMTPSender) Enviar(ctx context.Context, c domain.Correo) error {
 	if err := cliente.Mail(s.cfg.De); err != nil {
 		return fmt.Errorf("MAIL FROM: %w", err)
 	}
+	// Destinatario principal
 	if err := cliente.Rcpt(para.Address); err != nil {
-		return fmt.Errorf("RCPT TO: %w", err)
+		return fmt.Errorf("RCPT TO (principal): %w", err)
+	}
+	// Destinatarios en copia (CC)
+	for _, cc := range c.CC {
+		addr, err := mail.ParseAddress(cc)
+		if err != nil {
+			return fmt.Errorf("CC inválido %s: %w", cc, err)
+		}
+		if err := cliente.Rcpt(addr.Address); err != nil {
+			return fmt.Errorf("RCPT TO (CC %s): %w", cc, err)
+		}
 	}
 	w, err := cliente.Data()
 	if err != nil {
@@ -121,12 +132,26 @@ func ConstruirMensaje(de, para mail.Address, c domain.Correo, fecha time.Time) (
 	cabeceras := []string{
 		"From: " + de.String(),
 		"To: " + para.String(),
-		"Subject: " + mime.QEncoding.Encode("UTF-8", c.Asunto),
-		"Date: " + fecha.Format(time.RFC1123Z),
-		"Message-ID: <" + uuid.NewString() + "@srp-biess>",
-		"MIME-Version: 1.0",
-		"Content-Type: multipart/mixed; boundary=" + mezcla.Boundary(),
 	}
+	// Agregar cabecera CC si hay destinatarios en copia
+	if len(c.CC) > 0 {
+		ccAddrs := make([]string, len(c.CC))
+		for i, cc := range c.CC {
+			if addr, err := mail.ParseAddress(cc); err == nil {
+				ccAddrs[i] = addr.String()
+			} else {
+				ccAddrs[i] = cc
+			}
+		}
+		cabeceras = append(cabeceras, "Cc: "+strings.Join(ccAddrs, ", "))
+	}
+	cabeceras = append(cabeceras,
+		"Subject: "+mime.QEncoding.Encode("UTF-8", c.Asunto),
+		"Date: "+fecha.Format(time.RFC1123Z),
+		"Message-ID: <"+uuid.NewString()+"@srp-biess>",
+		"MIME-Version: 1.0",
+		"Content-Type: multipart/mixed; boundary="+mezcla.Boundary(),
+	)
 	cuerpo := strings.Join(cabeceras, "\r\n") + "\r\n\r\n"
 
 	var alt bytes.Buffer

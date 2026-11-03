@@ -122,7 +122,7 @@ func (s *NotificacionService) componer(ctx context.Context, n *domain.Notificaci
 	if err != nil {
 		return domain.Correo{}, err
 	}
-	correo := domain.Correo{Para: n.Destinatario, Asunto: n.Asunto, HTML: html, Texto: texto}
+	correo := domain.Correo{Para: n.Destinatario, CC: n.CC, Asunto: n.Asunto, HTML: html, Texto: texto}
 
 	if docID, ok := n.Payload["documento_id"].(string); ok && docID != "" {
 		adjunto, err := s.adjunto(ctx, docID)

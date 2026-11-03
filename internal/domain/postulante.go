@@ -17,6 +17,7 @@ type Postulante struct {
 	Nacionalidad       string     `json:"nacionalidad,omitempty"`     // vacío: ECUATORIANA
 	EstadoCivil        string     `json:"estado_civil,omitempty"`
 	Email              string     `json:"email"`
+	EmailSecundario    *string    `json:"email_secundario,omitempty"`
 	Telefono           string     `json:"telefono"`
 	Direccion          string     `json:"direccion"`
 	PaisID             string     `json:"pais_id"`

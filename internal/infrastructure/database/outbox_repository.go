@@ -25,14 +25,14 @@ func (r *PostgresNotificacionRepository) TomarPendiente(ctx context.Context) (*d
 		postulte *string
 	)
 	err := r.getQuerier(ctx).QueryRow(ctx, `
-		SELECT id, postulacion_id::text, postulante_id::text, tipo, destinatario, asunto, plantilla,
+		SELECT id, postulacion_id::text, postulante_id::text, tipo, destinatario, cc, asunto, plantilla,
 		       payload, estado::text, intentos, fecha_creacion
 		FROM notificacion
 		WHERE estado = 'PENDIENTE' AND proximo_intento <= now()
 		ORDER BY fecha_creacion
 		LIMIT 1
 		FOR UPDATE SKIP LOCKED`,
-	).Scan(&n.ID, &postul, &postulte, &n.Tipo, &n.Destinatario, &n.Asunto, &n.Plantilla,
+	).Scan(&n.ID, &postul, &postulte, &n.Tipo, &n.Destinatario, &n.CC, &n.Asunto, &n.Plantilla,
 		&payload, &n.Estado, &n.Intentos, &n.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, domain.ErrNotFound

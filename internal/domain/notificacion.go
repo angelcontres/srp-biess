@@ -20,6 +20,7 @@ type Notificacion struct {
 	PostulanteID  string             `json:"postulante_id"`
 	Tipo          string             `json:"tipo"`
 	Destinatario  string             `json:"destinatario"`
+	CC            []string           `json:"cc"` // Copia carbón (correos secundarios)
 	Asunto        string             `json:"asunto"`
 	Plantilla     string             `json:"plantilla"`
 	Payload       map[string]any     `json:"payload"`

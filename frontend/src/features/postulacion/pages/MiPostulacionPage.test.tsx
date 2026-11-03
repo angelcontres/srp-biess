@@ -53,6 +53,10 @@ describe('MiPostulacionPage (SDD 8.5.10)', () => {
     expect(screen.getByText('Mensaje institucional de cierre.')).toBeTruthy();
     expect(screen.getByText(/Fecha y hora del resultado: 3 de noviembre de 2026.*13:12/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Continuar con su postulación' })).toBeNull();
+    // No code and no PDF: "No aplica" (code and form), never "se asigna al enviar".
+    expect(screen.getAllByText('No aplica.')).toHaveLength(2);
+    expect(screen.queryByText('Se asigna al enviar la postulación.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Descargar PDF' })).toBeNull();
   });
 
   it('enviada: muestra código, fecha, historial y descarga el PDF', async () => {

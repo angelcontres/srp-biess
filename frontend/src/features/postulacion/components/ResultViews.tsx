@@ -146,7 +146,7 @@ export function EnviadaView({ resultado, cargoNombre }: { resultado: EnvioResult
         </div>
       </div>
       <Alert variant="info" title="Descargue, imprima y firme su formulario.">
-        [PENDIENTE: plazo y lugar de entrega según las bases del concurso]
+        El plazo y lugar de entrega lo establecerá el Instituto Ecuatoriano de Seguridad Social (IESS)
       </Alert>
     </div>
   );
