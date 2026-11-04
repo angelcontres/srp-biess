@@ -160,10 +160,10 @@ describe('Cargo y Experiencia', () => {
     await user.click(await screen.findByRole('button', { name: 'Agregar experiencia' }, ESPERA));
 
     const dialogo = await screen.findByRole('dialog', { name: 'Agregar experiencia' });
-    await user.type(within(dialogo).getByRole('textbox', { name: /Fecha de inicio/ }), '15012020');
-    await user.type(within(dialogo).getByRole('textbox', { name: /Fecha de fin/ }), '10032023');
+    await user.type(within(dialogo).getByRole('textbox', { name: 'Fecha de inicio' }), '15012020');
+    await user.type(within(dialogo).getByRole('textbox', { name: 'Fecha de fin' }), '10032023');
     expect(within(dialogo).getByText('3 años, 1 mes y 23 días')).toBeTruthy();
-    expect(within(dialogo).getByText(/Calculado automáticamente/)).toBeTruthy();
+    expect(within(dialogo).getByText('Calculado automáticamente')).toBeTruthy();
   });
 });
 
