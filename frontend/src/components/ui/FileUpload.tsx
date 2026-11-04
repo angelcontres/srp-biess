@@ -181,7 +181,7 @@ export default function FileUpload({
 
   const openPicker = () => inputRef.current?.click();
   const pickerLabel = value ? 'Reemplazar archivo' : 'Seleccionar archivo PDF';
-  const hintText = `Solo PDF. Tamaño máximo: ${maxSizeMB} MB.${contentHint ? ` ${contentHint}` : ''}`;
+  const hintText = `Formato aceptado: .pdf. Tamaño máximo: ${maxSizeMB} MB.${contentHint ? ` ${contentHint}` : ''}`;
 
   return (
     <div id={fieldId} tabIndex={-1} className="outline-none">
