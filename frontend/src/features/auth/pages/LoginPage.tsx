@@ -22,13 +22,20 @@ export interface LoginResponse {
 export interface LoginPageProps {
   /** Callback to switch to the registration view. */
   onNavigateToRegister?: () => void;
+  /** Callback to switch to the password recovery view. */
+  onNavigateToForgotPassword?: () => void;
   /** Callback invoked upon successful authentication. */
   onLoginSuccess?: (userData: LoginResponse) => void;
   /** Notice shown above the form, e.g. after the session expired (SRP-015). */
   aviso?: string;
 }
 
-export default function LoginPage({ onNavigateToRegister, onLoginSuccess, aviso }: LoginPageProps) {
+export default function LoginPage({
+  onNavigateToRegister,
+  onNavigateToForgotPassword,
+  onLoginSuccess,
+  aviso,
+}: LoginPageProps) {
   const [cedula, setCedula] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -148,6 +155,18 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess, aviso 
               </button>
             }
           />
+
+          {onNavigateToForgotPassword ? (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={onNavigateToForgotPassword}
+                className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary-dark"
+              >
+                ¿Olvidó su contraseña?
+              </button>
+            </div>
+          ) : null}
 
           <Button
             type="submit"
