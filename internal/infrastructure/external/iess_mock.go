@@ -16,6 +16,8 @@ func NewMockEmploymentProvider() *MockEmploymentProvider {
 		"0926687856": {Cedula: "0926687856", EsAfiliado: true},
 		"1710034065": {Cedula: "1710034065", EsJubilado: true},
 		"0912345675": {Cedula: "0912345675", EsAfiliado: true, EsEmpleador: true},
+		"0110500006": {Cedula: "0110500006", EsAfiliado: true},
+		"1810500007": {Cedula: "1810500007", EsJubilado: true},
 	}}
 }
 

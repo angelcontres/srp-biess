@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestAlmacenLocal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info, err := os.Stat(filepath.Join(raiz, "documentos")); err != nil || info.Mode().Perm() != 0o700 {
+	if info, err := os.Stat(filepath.Join(raiz, "documentos")); err != nil || (runtime.GOOS != "windows" && info.Mode().Perm() != 0o700) {
 		t.Fatalf("el directorio debía crearse con permisos 0700: %v %v", info, err)
 	}
 
