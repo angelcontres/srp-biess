@@ -39,6 +39,14 @@ func NewMockIdentityProvider() *MockIdentityProvider {
 			Cedula: "0912345675", Nombres: "CARLOS ANDRES", Apellidos: "MORA SALAZAR", Genero: "MASCULINO",
 			FechaNacimiento: nacimiento("1975-12-01"), Nacionalidad: "ECUATORIANA", EstadoCivil: "SOLTERO",
 		}},
+		"0110500006": {"2022-04-10", "A1234A5678", domain.IdentityResult{
+			Cedula: "0110500006", Nombres: "DIEGO FERNANDO", Apellidos: "CUENCA CABRERA", Genero: "MASCULINO",
+			FechaNacimiento: nacimiento("1988-09-15"), Nacionalidad: "ECUATORIANA", EstadoCivil: "SOLTERO",
+		}},
+		"1810500007": {"2019-10-15", "T5678T1234", domain.IdentityResult{
+			Cedula: "1810500007", Nombres: "ELENA PATRICIA", Apellidos: "MORALES VACA", Genero: "FEMENINO",
+			FechaNacimiento: nacimiento("1960-03-22"), Nacionalidad: "ECUATORIANA", EstadoCivil: "CASADO",
+		}},
 		"1304567892": {"2021-08-17", "E2222V3333", domain.IdentityResult{
 			Cedula: "1304567892", Nombres: "ANA LUCIA", Apellidos: "GOMEZ RUIZ", Genero: "FEMENINO",
 			FechaNacimiento: nacimiento("1990-04-15"), Nacionalidad: "COLOMBIANA", EstadoCivil: "SOLTERO",

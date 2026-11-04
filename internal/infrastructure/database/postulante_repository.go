@@ -132,7 +132,7 @@ func (r *PostgresPostulanteRepository) Save(ctx context.Context, p *domain.Postu
 			cedula, nombres, apellidos, nacionalidad, correo, email_secundario, password_hash, estado,
 			genero, fecha_nacimiento, estado_civil, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, COALESCE(NULLIF($6, ''), 'ECUATORIANA'), $4, $5, $7, 'ACTIVO',
+			$1, $2, $3, COALESCE(NULLIF($7, ''), 'ECUATORIANA'), $4, $5, $6, 'ACTIVO',
 			NULLIF($8, '')::genero, $9::date, NULLIF($10, '')::estado_civil, now(), now()
 		) RETURNING id, created_at, updated_at`
 
