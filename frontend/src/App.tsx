@@ -50,6 +50,7 @@ function App() {
   };
 
   const destinoTrasIngreso = (location.state as EstadoRedireccion | null)?.desde ?? RUTAS.formulario;
+  const isLandingPage = location.pathname === RUTAS.inicio;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -60,7 +61,7 @@ function App() {
         Saltar al contenido
       </a>
 
-      <Navbar userName={user} onLogout={() => void handleLogout()} />
+      {!isLandingPage && <Navbar userName={user} onLogout={() => void handleLogout()} />}
 
       <main id="main-content" className="flex-1">
         <Routes>
