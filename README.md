@@ -16,7 +16,7 @@ Plataforma web transaccional desacoplada para el **Concurso Público de Méritos
 | Software | Versión Recomendada | Propósito |
 |---|---|---|
 | **Docker & Docker Compose** | Docker 24+ / Compose v2+ | Contenerización de PostgreSQL 16, Redis 7 y Mailpit. |
-| **Go** | 1.22+ / 1.23+ | Backend API de alto rendimiento (Fiber v2). |
+| **Go** | 1.27.1+ | Versión declarada en `go.mod`; backend API con Fiber v2. |
 | **Node.js & npm** | Node 20+ (LTS) / npm 10+ | Frontend Single Page Application (React + Vite + Tailwind). |
 | **PostgreSQL (Cliente)** | 16+ | Base de datos relacional y transaccional. |
 | **Redis (Cliente)** | 7+ | Caché en memoria y control de intentos/bloqueo. |
@@ -52,7 +52,147 @@ chmod +x start.sh stop.sh
 
 ---
 
-## 3. Servicios Disponibles en Local
+## 3. Flujo completo de instalación y ejecución
+
+### 3.1 Preparar el entorno
+
+1. Clonar el repositorio y entrar en su directorio:
+
+```bash
+git clone https://github.com/angelcontres/srp-biess.git
+cd srp-biess
+```
+
+2. Crear las variables locales. Los scripts lo hacen automáticamente, pero también puede
+   ejecutarse de forma manual:
+
+```bash
+# Linux/macOS/Git Bash
+cp .env.example .env
+
+# Windows CMD
+copy .env.example .env
+```
+
+3. Levantar PostgreSQL 16, Redis 7 y Mailpit:
+
+```bash
+# Linux/macOS/Git Bash
+./start.sh
+# Seleccionar la opción 1
+
+# Windows
+start.bat
+# Seleccionar la opción 1
+```
+
+También puede ejecutarse directamente:
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+### 3.2 Crear o reiniciar la base de datos
+
+La opción 7 de `start.sh` o `start.bat` elimina los volúmenes y vuelve a ejecutar
+`db/init.sql`. Esta operación destruye los datos locales existentes.
+
+Para hacerlo manualmente:
+
+```bash
+docker compose down -v
+docker compose up -d postgres redis mailpit
+```
+
+`db/init.sql` contiene el DDL completo, catálogos geográficos, cargos, convocatoria y
+preguntas de inhabilidades. Se ejecuta automáticamente cuando PostgreSQL inicia con un
+volumen nuevo.
+
+### 3.3 Aplicar migraciones
+
+Las migraciones deben ejecutarse después de crear la base y en orden numérico:
+
+```bash
+for migration in db/migrations/*.sql; do
+  docker exec -i srp-biess-postgres \
+    psql -v ON_ERROR_STOP=1 -U srp_user -d srp_biess < "$migration"
+done
+```
+
+En Windows PowerShell:
+
+```powershell
+Get-ChildItem db/migrations/*.sql | Sort-Object Name | ForEach-Object {
+  Get-Content $_.FullName | docker exec -i srp-biess-postgres `
+    psql -v ON_ERROR_STOP=1 -U srp_user -d srp_biess
+}
+```
+
+### 3.4 Ejecutar los seeders
+
+El seed de catálogos ya forma parte de `db/init.sql`. El usuario de prueba para desarrollo
+se carga por separado:
+
+```bash
+docker exec -i srp-biess-postgres \
+  psql -v ON_ERROR_STOP=1 -U srp_user -d srp_biess \
+  < db/seeds/postulante_prueba.sql
+```
+
+Credenciales del usuario de prueba:
+
+```text
+Cédula:     0926687856
+Contraseña: BiessPostulante2026*
+Correo:     postulante.test@biess.gob.ec
+```
+
+### 3.5 Encender el backend
+
+Con Docker y PostgreSQL/Redis activos, desde la raíz del proyecto:
+
+```bash
+go run ./cmd/api
+```
+
+La API queda disponible en `http://localhost:8080`. Para compilarla:
+
+```bash
+go build ./cmd/api
+```
+
+### 3.6 Encender el frontend
+
+En otra terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+La SPA queda disponible normalmente en `http://localhost:5173`.
+
+Comandos frontend disponibles:
+
+```bash
+npm run typecheck
+npm run test -- --run
+npm run build
+```
+
+### 3.7 Detener el entorno
+
+```bash
+# Linux/macOS/Git Bash
+./stop.sh
+
+# Windows
+stop.bat
+```
+
+## 4. Servicios disponibles en local
 
 Una vez iniciado Docker Compose:
 
@@ -65,7 +205,7 @@ Una vez iniciado Docker Compose:
 
 ---
 
-## 4. Base de Datos y Datos Semilla (DDL)
+## 5. Base de datos y datos semilla (DDL)
 
 El script SQL completo con DDL normalizado, restricciones de integridad, transacciones y datos semilla (división política del Ecuador, cargos, preguntas de inhabilidad) se encuentra en:
 * [`db/init.sql`](./db/init.sql)
@@ -79,7 +219,7 @@ psql -h localhost -p 5432 -U srp_user -d srp_biess
 
 ---
 
-## 5. Variables de Entorno
+## 6. Variables de entorno
 
 El archivo modelo con todos los parámetros documentados es:
 * [`.env.example`](./.env.example)
@@ -88,7 +228,37 @@ Los scripts `start.bat` y `start.sh` crean automáticamente el archivo `.env` lo
 
 ---
 
-## 6. Pipeline de CI/CD (GitHub Actions & Runner Self-Hosted)
+## 7. Historial Git y ramas
+
+Repositorio:
+
+* [https://github.com/angelcontres/srp-biess](https://github.com/angelcontres/srp-biess)
+
+Consultar el historial con commits, autores y ramas:
+
+```bash
+git log --oneline --decorate --graph --all
+```
+
+Listar las ramas locales ordenadas por fecha del último commit:
+
+```bash
+git branch --sort=-committerdate -vv
+```
+
+Listar también las ramas remotas:
+
+```bash
+git branch --all --sort=-committerdate
+```
+
+Ramas principales:
+
+* `main`: referencia de producción.
+* `develop`: integración y pruebas.
+* `feature/*`, `fix/*` y `style/*`: trabajo aislado por funcionalidad, corrección o interfaz.
+
+## 8. Pipeline de CI/CD (GitHub Actions & Runner Self-Hosted)
 
 El repositorio cuenta con integración continua y despliegue automatizado en [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) ejecutándose en un runner propio Linux (`self-hosted`):
 
@@ -105,7 +275,7 @@ El repositorio cuenta con integración continua y despliegue automatizado en [`.
 
 ---
 
-## 7. Estructura de Documentación del Proyecto
+## 9. Estructura de documentación del proyecto
 
 Toda la documentación técnica exigida por estándares de ingeniería de software se encuentra organizada en el directorio `docs/`:
 
