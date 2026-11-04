@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { CircleCheck, Info } from 'lucide-react';
+import { CircleCheck, HelpCircle, Info } from 'lucide-react';
 import Alert from '@/components/ui/Alert';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -17,6 +17,37 @@ import { fieldId } from '../schemas/resolver';
 import { RequiredMark, RequiredNote } from '@/components/ui/FieldMessages';
 
 const INICIALES: RespaldoValues = { tieneRespaldo: '', nombreOrganizacion: '', documento: null };
+
+function TooltipInfo({ children }: { children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-line-strong bg-surface text-primary hover:bg-info-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        aria-label="Ver información sobre el documento de respaldo"
+      >
+        <HelpCircle size={14} strokeWidth={2} aria-hidden="true" />
+      </button>
+      <Modal
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        title="Requisitos del documento de respaldo"
+      >
+        <div className="space-y-4 text-base">
+          {children}
+        </div>
+        <div className="mt-6 flex justify-end">
+          <Button variant="primary" onClick={() => setIsOpen(false)}>
+            Entendido
+          </Button>
+        </div>
+      </Modal>
+    </>
+  );
+}
 
 function AvisoInstitucional({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
@@ -70,7 +101,7 @@ function SeleccionCargo() {
         ) : null}
         <AvisoInstitucional titulo="Selección definitiva">
           <p>La selección del cargo es definitiva para esta postulación.</p>
-          <p className="text-sm text-muted">[PENDIENTE: requisitos clave de cada cargo según las bases del concurso]</p>
+
         </AvisoInstitucional>
 
         <form
@@ -214,14 +245,34 @@ function Respaldo() {
           {tieneRespaldo === 'SI' ? (
             <div className="space-y-6 border-l-4 border-line pl-4">
               <Texto form={form} name="nombreOrganizacion" label="Nombre de la organización" required autoComplete="organization" />
-              <Documento
-                form={form}
-                name="documento"
-                label="Documento de respaldo"
-                tipo="RESPALDO_ORGANIZACIONAL"
-                maxSizeMB={MAX_MB_RESPALDO}
-                contentHint="[PENDIENTE: contenido exigido del documento de respaldo según las bases]"
-              />
+              <div className="flex items-start">
+                <div className="flex-1">
+                  <Documento
+                    form={form}
+                    name="documento"
+                    label="Documento de respaldo"
+                    tipo="RESPALDO_ORGANIZACIONAL"
+                    maxSizeMB={MAX_MB_RESPALDO}
+
+                  />
+                </div>
+                <TooltipInfo>
+                  <p className="text-muted">
+                    El documento debe estar emitido por una organización que cumpla estrictamente con la condición del sector correspondiente:
+                  </p>
+                  <ul className="mt-3 space-y-2 text-muted">
+                    <li>
+                      <strong className="text-text">Sector Afiliados:</strong> Emitido por una organización de trabajadores de representación nacional legalmente constituida ante la autoridad competente.
+                    </li>
+                    <li>
+                      <strong className="text-text">Sector Jubilados:</strong> Emitido por una organización de jubilados de representación nacional legalmente constituida ante la autoridad competente.
+                    </li>
+                    <li>
+                      <strong className="text-text">Sector Empleadores:</strong> Emitido por una federación de cámaras de representación nacional legalmente constituida ante la autoridad competente.
+                    </li>
+                  </ul>
+                </TooltipInfo>
+              </div>
             </div>
           ) : null}
         </section>

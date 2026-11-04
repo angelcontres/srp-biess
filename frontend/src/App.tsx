@@ -16,10 +16,12 @@ const PostulacionPage = lazy(() => import('@/features/postulacion/pages/Postulac
 const MiPostulacionPage = lazy(() => import('@/features/postulacion/pages/MiPostulacionPage'));
 
 const footerLinks = [
-  { label: 'Ayuda', href: '#ayuda' },
-  { label: 'Políticas de privacidad', href: '#privacidad' },
-  { label: 'Soporte técnico', href: '#soporte' },
-  { label: 'Bases legales del concurso', href: '#bases-legales' },
+  { label: 'Ayuda', href: 'https://www.biess.fin.ec/servicio-al-cliente' },
+  {
+    label: 'Políticas de privacidad',
+    href: 'https://www.biess.fin.ec/politicas-de-privacidad',
+  },
+  { label: 'Bases legales del concurso', href: 'https://www.biess.fin.ec/transparencia' },
 ];
 
 const AVISO_SESION_EXPIRADA = 'Su sesión expiró. Ingrese nuevamente para continuar con su postulación.';
@@ -152,7 +154,12 @@ function App() {
             <ul className="flex flex-wrap gap-x-6 gap-y-2">
               {footerLinks.map((link) => (
                 <li key={link.href}>
-                  <a href={link.href} className="underline underline-offset-4">
+                  <a
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-4"
+                  >
                     {link.label}
                   </a>
                 </li>
