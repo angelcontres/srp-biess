@@ -78,7 +78,7 @@ jobs:
       always() &&
       needs.ci.result == 'success' &&
       (
-        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
         (github.event_name == 'workflow_dispatch' && (inputs.deploy == true || inputs.deploy == 'true'))
       )
     steps:
