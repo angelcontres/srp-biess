@@ -5,6 +5,8 @@ import Skeleton from '@/components/ui/Skeleton';
 import LandingPage from '@/features/auth/pages/LandingPage';
 import LoginPage from '@/features/auth/pages/LoginPage';
 import RegisterPage from '@/features/auth/pages/RegisterPage';
+import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage';
+import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage';
 import { useSession } from '@/features/auth/session/SessionProvider';
 import { ProtectedRoute, PublicOnlyRoute, RUTAS } from '@/features/auth/session/routes';
 import type { EstadoRedireccion } from '@/features/auth/session/routes';
@@ -81,6 +83,7 @@ function App() {
                 <LoginPage
                   aviso={expired ? AVISO_SESION_EXPIRADA : undefined}
                   onNavigateToRegister={() => navigate(RUTAS.registro)}
+                  onNavigateToForgotPassword={() => navigate(RUTAS.recuperarPassword)}
                   onLoginSuccess={(datos) => {
                     navigate(destinoTrasIngreso, { replace: true });
                     signIn(datos.email);
@@ -89,6 +92,21 @@ function App() {
               }
             />
             <Route path={RUTAS.registro} element={<RegisterPage onNavigateToLogin={() => navigate(RUTAS.ingresar)} />} />
+            <Route
+              path={RUTAS.recuperarPassword}
+              element={
+                <ForgotPasswordPage
+                  onNavigateToLogin={() => navigate(RUTAS.ingresar)}
+                  onNavigateToReset={(tok) =>
+                    navigate(tok ? `${RUTAS.restablecerPassword}?token=${encodeURIComponent(tok)}` : RUTAS.restablecerPassword)
+                  }
+                />
+              }
+            />
+            <Route
+              path={RUTAS.restablecerPassword}
+              element={<ResetPasswordPage onNavigateToLogin={() => navigate(RUTAS.ingresar)} />}
+            />
           </Route>
 
           <Route element={<ProtectedRoute />}>

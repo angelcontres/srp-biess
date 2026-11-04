@@ -44,6 +44,9 @@ func SetupRoutes(app *fiber.App, cfg RouterConfig) {
 		auth.Post("/login", cfg.AuthHandler.Login)
 		auth.Post("/refresh", cfg.AuthHandler.Refresh)
 		auth.Post("/registro/validar-identidad", cfg.AuthHandler.ValidarIdentidadRegistro)
+		auth.Post("/registro", cfg.AuthHandler.Registro)
+		auth.Post("/recuperar-password", cfg.AuthHandler.RecuperarPassword)
+		auth.Post("/restablecer-password", cfg.AuthHandler.RestablecerPassword)
 
 		// Endpoints protegidos con Access Token JWT (15 min)
 		if cfg.AuthService != nil {

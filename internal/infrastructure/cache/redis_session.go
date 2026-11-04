@@ -16,7 +16,7 @@ type memoryTokenItem struct {
 	expiresAt    time.Time
 }
 
-// RedisSessionStore implementa domain.SessionStore sobre Redis con fallback seguro en memoria (ADR-005, ADR-006).
+// RedisSessionStore implementa domain.SessionStore y domain.PasswordResetStore sobre Redis con fallback seguro en memoria (ADR-005, ADR-006).
 type RedisSessionStore struct {
 	rdb         *redis.Client
 	mu          sync.RWMutex
@@ -33,6 +33,10 @@ func NewRedisSessionStore(rdb *redis.Client) *RedisSessionStore {
 
 func (s *RedisSessionStore) tokenKey(token string) string {
 	return fmt.Sprintf("refresh_token:%s", token)
+}
+
+func (s *RedisSessionStore) resetKey(token string) string {
+	return fmt.Sprintf("pwd_reset:%s", token)
 }
 
 // SaveRefreshToken persiste el token de actualización con TTL de expiración (8 horas).
@@ -91,6 +95,64 @@ func (s *RedisSessionStore) DeleteRefreshToken(ctx context.Context, token string
 
 	s.mu.Lock()
 	delete(s.memoryStore, token)
+	s.mu.Unlock()
+	return nil
+}
+
+// SaveResetToken persiste el token de recuperación de contraseña con TTL (30 min por defecto, SDD 10.5).
+func (s *RedisSessionStore) SaveResetToken(ctx context.Context, token string, postulanteID string, ttl time.Duration) error {
+	if s.rdb != nil {
+		err := s.rdb.Set(ctx, s.resetKey(token), postulanteID, ttl).Err()
+		if err == nil {
+			return nil
+		}
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.memoryStore["reset:"+token] = memoryTokenItem{
+		postulanteID: postulanteID,
+		expiresAt:    time.Now().Add(ttl),
+	}
+	return nil
+}
+
+// GetResetToken recupera el postulanteID si el token es válido y no ha expirado.
+func (s *RedisSessionStore) GetResetToken(ctx context.Context, token string) (string, error) {
+	if s.rdb != nil {
+		val, err := s.rdb.Get(ctx, s.resetKey(token)).Result()
+		if err == nil {
+			return val, nil
+		}
+		if err == redis.Nil {
+			return "", domain.ErrTokenInvalido
+		}
+	}
+
+	s.mu.RLock()
+	item, ok := s.memoryStore["reset:"+token]
+	s.mu.RUnlock()
+
+	if !ok || time.Now().After(item.expiresAt) {
+		if ok {
+			s.mu.Lock()
+			delete(s.memoryStore, "reset:"+token)
+			s.mu.Unlock()
+		}
+		return "", domain.ErrTokenInvalido
+	}
+
+	return item.postulanteID, nil
+}
+
+// DeleteResetToken invalida el token de recuperación tras haber sido utilizado.
+func (s *RedisSessionStore) DeleteResetToken(ctx context.Context, token string) error {
+	if s.rdb != nil {
+		_ = s.rdb.Del(ctx, s.resetKey(token)).Err()
+	}
+
+	s.mu.Lock()
+	delete(s.memoryStore, "reset:"+token)
 	s.mu.Unlock()
 	return nil
 }
