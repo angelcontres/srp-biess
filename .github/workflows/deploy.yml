@@ -73,15 +73,10 @@ jobs:
   # =========================================================================
   deploy:
     name: CD - Despliegue en Servidor Self-Hosted
-    # needs: ci
     runs-on: [self-hosted, Linux]
     if: |
-      always() &&
-      # needs.ci.result == 'success' &&
-      (
-        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
-        (github.event_name == 'workflow_dispatch' && (inputs.deploy == true || inputs.deploy == 'true'))
-      )
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')) ||
+      (github.event_name == 'workflow_dispatch' && (inputs.deploy == true || inputs.deploy == 'true'))
     steps:
       - name: "Clonar repositorio"
         uses: actions/checkout@v4
@@ -131,8 +126,7 @@ jobs:
             sleep 3
           done
 
-      - name: "Resumen de Despliegue"
-        run: |
+          echo "[*] Resumen de Despliegue"
           echo "=========================================================="
           echo "  SRP-BIESS: DESPLIEGUE EXITOSO EN RUNNER SELF-HOSTED"
           echo "=========================================================="
