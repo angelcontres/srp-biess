@@ -287,6 +287,7 @@ func (s *PostulacionService) EnviarPostulacion(ctx context.Context, req EnviarPo
 			PostulanteID:  p.PostulanteID,
 			Tipo:          "CONFIRMACION_POSTULACION",
 			Destinatario:  postulante.Email,
+			CC:            correoSecundario(postulante.EmailSecundario),
 			Asunto:        fmt.Sprintf("Confirmación de Postulación BIESS — %s", codigoUnico),
 			Plantilla:     "confirmacion_postulacion.html",
 			Payload: map[string]any{
@@ -295,6 +296,8 @@ func (s *PostulacionService) EnviarPostulacion(ctx context.Context, req EnviarPo
 				"cargo_id":     p.CargoID,
 				// El remitente adjunta el formulario guardado (SRS 2: "Enviar correo con PDF").
 				"documento_id": doc.ID,
+				// Saludo del correo: nombre registrado del postulante.
+				"nombres": strings.TrimSpace(postulante.Nombres + " " + postulante.Apellidos),
 			},
 		}
 		if err := s.notificacionRepo.Enqueue(txCtx, notif); err != nil {
@@ -415,4 +418,12 @@ func (s *PostulacionService) DescargarFormulario(ctx context.Context, postulacio
 		}
 	}
 	return nil, nil, domain.ErrDocumentoNoEncontrado
+}
+
+// correoSecundario convierte un email secundario opcional en slice CC.
+func correoSecundario(emailSecundario *string) []string {
+	if emailSecundario != nil && *emailSecundario != "" {
+		return []string{*emailSecundario}
+	}
+	return nil
 }

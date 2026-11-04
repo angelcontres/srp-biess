@@ -1,0 +1,1 @@
+ALTER TABLE postulante ADD COLUMN IF NOT EXISTS email_secundario text;

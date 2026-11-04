@@ -18,6 +18,7 @@ import (
 	"srp-biess/internal/domain"
 	"srp-biess/internal/infrastructure/cache"
 	"srp-biess/internal/infrastructure/database"
+	"srp-biess/internal/infrastructure/email"
 	"srp-biess/internal/infrastructure/external"
 	"srp-biess/internal/infrastructure/pdf"
 	"srp-biess/internal/infrastructure/security"
@@ -128,6 +129,16 @@ func main() {
 			postulacionService.WithFormularioPDF(postulanteRepo, lector, pdf.NewGeneradorGopdf(), almacen).
 				WithCatalogo(catalogoRepo).
 				WithAuditoria(auditoriaRepo)
+		}
+		// SRP-017c: worker del outbox (ADR-011): envía la confirmación con el PDF adjunto.
+		if outbox, ok := notificacionRepo.(domain.OutboxRepository); ok {
+			plantillas, err := email.NewPlantillas()
+			if err != nil {
+				log.Fatalf("[FATAL] %v", err)
+			}
+			notificacionService := application.NewNotificacionService(txManager, outbox,
+				email.NewSMTPSender(configSMTP()), plantillas, documentoRepo, almacen, catalogoRepo)
+			go ejecutarWorkerNotificaciones(ctx, notificacionService, intervaloNotificaciones())
 		}
 	}
 	// Sin PostgreSQL el handler recibe nil y responde 503 (no se invoca un repositorio nulo).
@@ -271,4 +282,49 @@ func vigenciaDescarga() time.Duration {
 		return d
 	}
 	return application.DefaultVigenciaDescarga
+}
+
+// configSMTP lee SMTP_* (SDD 16.4.4). Por defecto apunta a Mailpit en localhost:1025.
+func configSMTP() email.ConfigSMTP {
+	puerto, err := strconv.Atoi(envOr("SMTP_PORT", "1025"))
+	if err != nil {
+		puerto = 1025
+	}
+	return email.ConfigSMTP{
+		Host:     envOr("SMTP_HOST", "localhost"),
+		Puerto:   puerto,
+		Usuario:  os.Getenv("SMTP_USER"),
+		Clave:    os.Getenv("SMTP_PASSWORD"),
+		De:       envOr("SMTP_FROM", "notificaciones-concurso@biess.gob.ec"),
+		NombreDe: envOr("SMTP_FROM_NAME", "Concurso Directorio BIESS"),
+		TLS:      os.Getenv("SMTP_TLS") == "true",
+	}
+}
+
+// intervaloNotificaciones lee NOTIFICACIONES_INTERVALO (p. ej. "10s").
+func intervaloNotificaciones() time.Duration {
+	if d, err := time.ParseDuration(os.Getenv("NOTIFICACIONES_INTERVALO")); err == nil && d > 0 {
+		return d
+	}
+	return 10 * time.Second
+}
+
+// ejecutarWorkerNotificaciones procesa el outbox cada `intervalo` hasta el apagado de la API.
+func ejecutarWorkerNotificaciones(ctx context.Context, svc *application.NotificacionService, intervalo time.Duration) {
+	log.Printf("[INFO] Worker de notificaciones activo (cada %s)", intervalo)
+	ticker := time.NewTicker(intervalo)
+	defer ticker.Stop()
+	for {
+		if n, err := svc.ProcesarPendientes(ctx, 50); err != nil {
+			log.Printf("[ERROR] worker de notificaciones: %v", err)
+		} else if n > 0 {
+			log.Printf("[INFO] notificaciones procesadas: %d", n)
+		}
+		select {
+		case <-ctx.Done():
+			log.Println("[INFO] Worker de notificaciones detenido")
+			return
+		case <-ticker.C:
+		}
+	}
 }

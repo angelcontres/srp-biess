@@ -112,9 +112,6 @@ func (g *GeneradorGopdf) Generar(f domain.FormularioPDF) ([]byte, error) {
 
 	d.titulo("Consentimiento")
 	d.texto(f.TextoConsentimiento, cuerpo, false)
-	if f.VersionTerminos != "" {
-		d.campos([]domain.CampoPDF{{Etiqueta: "Versión de los términos aceptados", Valor: f.VersionTerminos}})
-	}
 
 	d.firma(f)
 

@@ -30,7 +30,7 @@ func (r *PostgresPostulanteRepository) getQuerier(ctx context.Context) Querier {
 
 func (r *PostgresPostulanteRepository) GetByID(ctx context.Context, id string) (*domain.Postulante, error) {
 	query := `
-		SELECT id, cedula, nombres, apellidos, correo, password_hash, created_at, updated_at
+		SELECT id, cedula, nombres, apellidos, correo, email_secundario, password_hash, created_at, updated_at
 		FROM postulante
 		WHERE id = $1::uuid`
 
@@ -43,6 +43,7 @@ func (r *PostgresPostulanteRepository) GetByID(ctx context.Context, id string) (
 		&p.Nombres,
 		&p.Apellidos,
 		&p.Email,
+		&p.EmailSecundario,
 		&p.PasswordHash,
 		&createdAt,
 		&updatedAt,
@@ -61,7 +62,7 @@ func (r *PostgresPostulanteRepository) GetByID(ctx context.Context, id string) (
 
 func (r *PostgresPostulanteRepository) GetByCedula(ctx context.Context, cedula string) (*domain.Postulante, error) {
 	query := `
-		SELECT id, cedula, nombres, apellidos, correo, password_hash, created_at, updated_at
+		SELECT id, cedula, nombres, apellidos, correo, email_secundario, password_hash, created_at, updated_at
 		FROM postulante
 		WHERE cedula = $1`
 
@@ -74,6 +75,7 @@ func (r *PostgresPostulanteRepository) GetByCedula(ctx context.Context, cedula s
 		&p.Nombres,
 		&p.Apellidos,
 		&p.Email,
+		&p.EmailSecundario,
 		&p.PasswordHash,
 		&createdAt,
 		&updatedAt,
@@ -92,7 +94,7 @@ func (r *PostgresPostulanteRepository) GetByCedula(ctx context.Context, cedula s
 
 func (r *PostgresPostulanteRepository) GetByEmail(ctx context.Context, email string) (*domain.Postulante, error) {
 	query := `
-		SELECT id, cedula, nombres, apellidos, correo, password_hash, created_at, updated_at
+		SELECT id, cedula, nombres, apellidos, correo, email_secundario, password_hash, created_at, updated_at
 		FROM postulante
 		WHERE correo = $1`
 
@@ -105,6 +107,7 @@ func (r *PostgresPostulanteRepository) GetByEmail(ctx context.Context, email str
 		&p.Nombres,
 		&p.Apellidos,
 		&p.Email,
+		&p.EmailSecundario,
 		&p.PasswordHash,
 		&createdAt,
 		&updatedAt,
@@ -126,11 +129,11 @@ func (r *PostgresPostulanteRepository) GetByEmail(ctx context.Context, email str
 func (r *PostgresPostulanteRepository) Save(ctx context.Context, p *domain.Postulante) error {
 	query := `
 		INSERT INTO postulante (
-			cedula, nombres, apellidos, nacionalidad, correo, password_hash, estado,
+			cedula, nombres, apellidos, nacionalidad, correo, email_secundario, password_hash, estado,
 			genero, fecha_nacimiento, estado_civil, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, COALESCE(NULLIF($6, ''), 'ECUATORIANA'), $4, $5, 'ACTIVO',
-			NULLIF($7, '')::genero, $8::date, NULLIF($9, '')::estado_civil, now(), now()
+			$1, $2, $3, COALESCE(NULLIF($6, ''), 'ECUATORIANA'), $4, $5, $7, 'ACTIVO',
+			NULLIF($8, '')::genero, $9::date, NULLIF($10, '')::estado_civil, now(), now()
 		) RETURNING id, created_at, updated_at`
 
 	return r.getQuerier(ctx).QueryRow(ctx, query,
@@ -138,6 +141,7 @@ func (r *PostgresPostulanteRepository) Save(ctx context.Context, p *domain.Postu
 		p.Nombres,
 		p.Apellidos,
 		p.Email,
+		p.EmailSecundario,
 		p.PasswordHash,
 		p.Nacionalidad,
 		p.Genero,
