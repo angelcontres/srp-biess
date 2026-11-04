@@ -8,11 +8,12 @@ import SelectField from '@/components/ui/SelectField';
 import type { SelectOption } from '@/components/ui/SelectField';
 import TextAreaField from '@/components/ui/TextAreaField';
 import TextField from '@/components/ui/TextField';
+import DateInput from '@/components/ui/DateInput';
 import { SI_NO } from '../constants';
 import { usePostulacion } from '../PostulacionContext';
 import { fieldId } from '../schemas/resolver';
 import type { TipoDocumento } from '../types';
-import { maskDmy } from '../utils/fechas';
+import { RequiredMark } from '../../../components/ui/FieldMessages';
 
 /* Thin bindings between React Hook Form and the UI kit. Ids follow fieldId(),
    which the error summary links to. */
@@ -69,23 +70,21 @@ export function Fecha<T extends FieldValues>({ form, name, label, required, help
       control={form.control as Control<T>}
       name={name}
       render={({ field, fieldState }) => (
-        <TextField
-          id={fieldId(name)}
-          label={label}
-          required={required}
-          helperText={helperText ?? 'Formato: dd/mm/aaaa, por ejemplo 15/01/2020.'}
-          inputMode="numeric"
-          autoComplete="off"
-          maxLength={10}
-          className="tabular-nums"
-          containerClassName={className}
-          value={field.value ?? ''}
-          onChange={(event) => field.onChange(maskDmy(event.target.value))}
-          onBlur={field.onBlur}
-          name={field.name}
-          ref={field.ref}
-          error={fieldState.error?.message}
-        />
+        <div className={className}>
+          <label htmlFor={fieldId(name)} className="mb-2 block text-base font-medium text-text">
+            {label}
+            {required && <RequiredMark />}
+          </label>
+          <DateInput
+            id={fieldId(name)}
+            value={field.value ?? ''}
+            onChange={(value) => field.onChange(value)}
+            inputMode="numeric"
+            error={fieldState.error?.message}
+            required={required}
+          />
+          {helperText && <p className="mt-2 text-sm text-muted">{helperText}</p>}
+        </div>
       )}
     />
   );
