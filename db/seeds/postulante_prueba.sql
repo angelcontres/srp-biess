@@ -13,7 +13,7 @@ VALUES (
   'FEMENINO',
   '1985-03-21',
   'CASADO',
-  'carlitoscharlie2005@gmail.com',
+  'postulante.test@biess.gob.ec',
   '$argon2id$v=19$m=65536,t=1,p=2$cSUqFj2dE9xCIZOic6W+Mg$uy8ChFmsSiczO7utxsT+RSrnsOI1XS4C4x0mEw0kThQ'
 )
 ON CONFLICT (cedula) DO UPDATE
